@@ -68,34 +68,32 @@ private extension YahtApp {
         return base.appendingPathComponent("Yaht.sqlite")
     }
 
-    /// Builds the local persistent container, recovering from a corrupt store.
+    /// Builds the persistent container, mirroring to CloudKit when available and
+    /// degrading gracefully: CloudKit → move-aside retry → local-only → in-memory.
+    /// The local-only tier means a provisioning/iCloud issue costs sync, never data.
     static func makePersistentContainer() -> ModelContainer {
         let schema = Schema(versionedSchema: SchemaV1.self)
         let url = storeURL()
-        // TODO(cloudkit): switch ModelConfiguration to cloudKitDatabase:.automatic
-        // once the io.4499.yaht App ID has iCloud+CloudKit enabled.
-        let configuration = ModelConfiguration(schema: schema, url: url)
+        // Primary: SwiftData ↔ CloudKit automatic mirroring (iCloud.io.4499.yaht).
+        let cloudConfig = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .automatic)
+        // Fallback: same on-disk store without CloudKit, for when iCloud/CloudKit
+        // is unavailable (missing entitlement, container, etc.) — keeps persistence.
+        let localConfig = ModelConfiguration(schema: schema, url: url)
+
+        func build(_ config: ModelConfiguration) throws -> ModelContainer {
+            try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
+        }
 
         do {
-            return try ModelContainer(
-                for: schema,
-                migrationPlan: AppMigrationPlan.self,
-                configurations: [configuration]
-            )
+            return try build(cloudConfig)
         } catch {
-            // Do NOT delete: move the (likely corrupt) store aside and retry
-            // with a fresh one so the user keeps a chance at recovery.
+            // Likely a corrupt store: move it (and sidecars) aside and retry once.
             moveStoreAside(url)
-            do {
-                return try ModelContainer(
-                    for: schema,
-                    migrationPlan: AppMigrationPlan.self,
-                    configurations: [configuration]
-                )
-            } catch {
-                // Last resort: run entirely in memory this session.
-                return makeInMemoryContainer()
-            }
+            if let recovered = try? build(cloudConfig) { return recovered }
+            // CloudKit itself may be the problem — fall back to local persistence.
+            if let local = try? build(localConfig) { return local }
+            // Last resort: run entirely in memory this session.
+            return makeInMemoryContainer()
         }
     }
 
