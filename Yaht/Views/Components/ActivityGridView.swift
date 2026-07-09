@@ -32,6 +32,7 @@ struct ActivityGridView: View {
                 }
                 .padding(.vertical, 2)
             }
+            .defaultScrollAnchor(.trailing)
             .accessibilityElement()
             .accessibilityLabel("Activity grid")
             .accessibilityIdentifier("activity-grid-\(habit.id.uuidString)")

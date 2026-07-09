@@ -66,6 +66,7 @@ struct GlobalActivityGridView: View {
             }
             .padding(.vertical, 2)
         }
+        .defaultScrollAnchor(.trailing)
         .accessibilityIdentifier("global-activity-grid")
     }
 
