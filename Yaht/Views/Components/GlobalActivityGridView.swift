@@ -14,9 +14,8 @@ struct GlobalActivityGridView: View {
     private let weeks: Int
     private let cells: [DayCell]
 
-    private let cellSize: CGFloat = 12
-    private let cellSpacing: CGFloat = 3
-    private let legendSteps: [Double] = [0.08, 0.3, 0.5, 0.7, 1.0]
+    /// Neutral accent used for the intensity legend (the grid itself is multi-hued).
+    private let legendColor = Color.accentColor
 
     /// One day's rendering data. `color == nil` means "no completions".
     private struct DayCell {
@@ -56,9 +55,9 @@ struct GlobalActivityGridView: View {
 
     private var grid: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: cellSpacing) {
+            HStack(alignment: .top, spacing: ActivityStyle.cellSpacing) {
                 ForEach(0..<weeks, id: \.self) { column in
-                    VStack(spacing: cellSpacing) {
+                    VStack(spacing: ActivityStyle.cellSpacing) {
                         ForEach(0..<7, id: \.self) { row in
                             cellView(cells[column * 7 + row])
                         }
@@ -71,28 +70,26 @@ struct GlobalActivityGridView: View {
     }
 
     private func cellView(_ cell: DayCell) -> some View {
-        RoundedRectangle(cornerRadius: 3, style: .continuous)
+        RoundedRectangle(cornerRadius: ActivityStyle.cornerRadius, style: .continuous)
             .fill(fill(for: cell))
-            .frame(width: cellSize, height: cellSize)
-            .opacity(cell.inRange ? 1 : 0)
+            .frame(width: ActivityStyle.cellSize, height: ActivityStyle.cellSize)
     }
 
     private func fill(for cell: DayCell) -> Color {
-        guard let color = cell.color else {
-            return Cyberdream.textSecondary.opacity(0.08)
-        }
-        return color.opacity(0.35 + cell.intensity * 0.65)
+        guard cell.inRange else { return ActivityStyle.ghostFill }
+        guard let color = cell.color else { return ActivityStyle.emptyFill }
+        return ActivityStyle.fill(color, level: cell.intensity)
     }
 
     private var legend: some View {
-        HStack(spacing: cellSpacing) {
+        HStack(spacing: ActivityStyle.cellSpacing) {
             Text("Less")
                 .font(.caption2)
                 .foregroundStyle(Cyberdream.textSecondary)
-            ForEach(legendSteps, id: \.self) { step in
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(Cyberdream.textSecondary.opacity(step))
-                    .frame(width: cellSize, height: cellSize)
+            ForEach(ActivityStyle.legendLevels, id: \.self) { level in
+                RoundedRectangle(cornerRadius: ActivityStyle.cornerRadius, style: .continuous)
+                    .fill(ActivityStyle.legendFill(legendColor, level: level))
+                    .frame(width: ActivityStyle.cellSize, height: ActivityStyle.cellSize)
             }
             Text("More")
                 .font(.caption2)

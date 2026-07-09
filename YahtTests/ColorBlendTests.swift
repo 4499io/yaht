@@ -44,4 +44,37 @@ struct ColorBlendTests {
         #expect(abs(Double(result.green) - 0.6) < tolerance)
         #expect(abs(Double(result.blue) - 0.8) < tolerance)
     }
+
+    // MARK: - mix
+
+    @Test func mixEndpointsReturnInputs() {
+        let a = Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1)
+        let b = Color(.sRGB, red: 1, green: 1, blue: 1, opacity: 1)
+
+        let low = mix(a, b, 0).resolve(in: EnvironmentValues())
+        let high = mix(a, b, 1).resolve(in: EnvironmentValues())
+
+        #expect(abs(Double(low.red) - 0.0) < tolerance)
+        #expect(abs(Double(high.red) - 1.0) < tolerance)
+    }
+
+    @Test func mixHalfwayIsMidpoint() {
+        let a = Color(.sRGB, red: 0.2, green: 0.2, blue: 0.2, opacity: 1)
+        let b = Color(.sRGB, red: 0.8, green: 0.8, blue: 0.8, opacity: 1)
+
+        let mid = mix(a, b, 0.5).resolve(in: EnvironmentValues())
+
+        #expect(abs(Double(mid.red) - 0.5) < tolerance)
+    }
+
+    @Test func mixClampsOutOfRange() {
+        let a = Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1)
+        let b = Color(.sRGB, red: 1, green: 1, blue: 1, opacity: 1)
+
+        let below = mix(a, b, -1).resolve(in: EnvironmentValues())
+        let above = mix(a, b, 2).resolve(in: EnvironmentValues())
+
+        #expect(abs(Double(below.red) - 0.0) < tolerance)
+        #expect(abs(Double(above.red) - 1.0) < tolerance)
+    }
 }
