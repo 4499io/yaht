@@ -82,14 +82,18 @@ struct HabitStoreTests {
         let habit = Habit(name: "Floss", kind: .binary)
         store.create(habit)
 
-        let morning = Date()
+        // Anchor both taps to the same calendar day (08:00 and 20:00 local) so
+        // the test is deterministic regardless of wall-clock time / timezone —
+        // morning+8h could otherwise cross midnight and hit a different day.
+        let base = Calendar.current.startOfDay(for: Date())
+        let morning = base.addingTimeInterval(8 * 3600)
         store.toggleCompletion(for: habit, on: morning)
         #expect(try allLogs(context).count == 1)
         #expect(habit.isCompleted(on: morning))
 
         // Toggling again the same calendar day (different time) removes the
         // single log rather than creating a duplicate.
-        let evening = morning.addingTimeInterval(8 * 3600)
+        let evening = base.addingTimeInterval(20 * 3600)
         store.toggleCompletion(for: habit, on: evening)
         #expect(try allLogs(context).isEmpty)
         #expect(!habit.isCompleted(on: morning))
