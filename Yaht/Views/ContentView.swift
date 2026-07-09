@@ -1,21 +1,10 @@
 import SwiftUI
 
-/// Placeholder root screen. Real habit UI arrives in a later step (see docs/PLAN.md).
-/// Always-dark is enforced app-wide via INFOPLIST_KEY_UIUserInterfaceStyle = Dark.
+/// Root screen. Hosts the habit list inside the app's single navigation stack.
 struct ContentView: View {
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text("🧩")
-                    .font(.system(size: 72))
-                Text("Yaht")
-                    .font(.largeTitle.bold())
-                Text("yet another habit tracker")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Yaht")
+            HabitListView()
         }
     }
 }
