@@ -11,41 +11,59 @@ struct ActivityGridView: View {
     private let habit: Habit
     private let columns: [[DayCell]]
 
-    private let cellSize: CGFloat = 14
-    private let cellSpacing: CGFloat = 3
-
     init(habit: Habit, weeks: Int = 20) {
         self.habit = habit
         self.columns = ActivityGridView.buildColumns(weeks: max(1, weeks), createdAt: habit.createdAt)
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: cellSpacing) {
-                ForEach(Array(columns.enumerated()), id: \.offset) { _, week in
-                    VStack(spacing: cellSpacing) {
-                        ForEach(week) { cell in
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(fill(for: cell))
-                                .frame(width: cellSize, height: cellSize)
+        VStack(alignment: .leading, spacing: 12) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: ActivityStyle.cellSpacing) {
+                    ForEach(Array(columns.enumerated()), id: \.offset) { _, week in
+                        VStack(spacing: ActivityStyle.cellSpacing) {
+                            ForEach(week) { cell in
+                                RoundedRectangle(cornerRadius: ActivityStyle.cornerRadius, style: .continuous)
+                                    .fill(fill(for: cell))
+                                    .frame(width: ActivityStyle.cellSize, height: ActivityStyle.cellSize)
+                            }
                         }
                     }
                 }
+                .padding(.vertical, 2)
             }
-            .padding(.vertical, 2)
+            .accessibilityElement()
+            .accessibilityLabel("Activity grid")
+            .accessibilityIdentifier("activity-grid-\(habit.id.uuidString)")
+            legend
         }
-        .accessibilityElement()
-        .accessibilityLabel("Activity grid")
-        .accessibilityIdentifier("activity-grid-\(habit.id.uuidString)")
     }
 
-    /// Map a cell to its fill color: faint for out-of-range or empty live days,
-    /// scaling up to the full habit color at complete progress.
+    /// Map a cell to its fill color: a faint ghost for out-of-range days, a clear
+    /// empty lattice for live-but-incomplete days, scaling up to the solid habit
+    /// color at full progress. Shared with the global grid via ``ActivityStyle``.
     private func fill(for cell: DayCell) -> Color {
-        guard cell.isLive else { return Cyberdream.surface.opacity(0.35) }
+        guard cell.isLive else { return ActivityStyle.ghostFill }
         let progress = habit.progress(on: cell.date)
-        guard progress > 0 else { return Cyberdream.elevated }
-        return habit.color.opacity(0.3 + 0.7 * progress)
+        guard progress > 0 else { return ActivityStyle.emptyFill }
+        return ActivityStyle.fill(habit.color, level: progress)
+    }
+
+    /// Intensity key, in this habit's own color, so the grid explains itself.
+    private var legend: some View {
+        HStack(spacing: ActivityStyle.cellSpacing) {
+            Text("Less")
+                .font(.caption2)
+                .foregroundStyle(Cyberdream.textSecondary)
+            ForEach(ActivityStyle.legendLevels, id: \.self) { level in
+                RoundedRectangle(cornerRadius: ActivityStyle.cornerRadius, style: .continuous)
+                    .fill(ActivityStyle.legendFill(habit.color, level: level))
+                    .frame(width: ActivityStyle.cellSize, height: ActivityStyle.cellSize)
+            }
+            Text("More")
+                .font(.caption2)
+                .foregroundStyle(Cyberdream.textSecondary)
+        }
     }
 
     /// One day in the grid. Identity is the day itself so `ForEach` stays stable.

@@ -32,3 +32,21 @@ func blend(_ colors: [Color]) -> Color {
         opacity: opacity / count
     )
 }
+
+/// Linearly interpolates between two colors in sRGB space. `t == 0` returns `a`,
+/// `t == 1` returns `b`; values are clamped to that range. Unlike layering with
+/// `.opacity`, this composites to a concrete opaque color, so a tinted cell over a
+/// dark surface stays vivid instead of bleeding toward black.
+func mix(_ a: Color, _ b: Color, _ t: Double) -> Color {
+    let tt = min(max(t, 0), 1)
+    let ra = a.resolve(in: EnvironmentValues())
+    let rb = b.resolve(in: EnvironmentValues())
+    func lerp(_ x: Float, _ y: Float) -> Double { Double(x) + (Double(y) - Double(x)) * tt }
+    return Color(
+        .sRGB,
+        red: lerp(ra.red, rb.red),
+        green: lerp(ra.green, rb.green),
+        blue: lerp(ra.blue, rb.blue),
+        opacity: lerp(ra.opacity, rb.opacity)
+    )
+}
