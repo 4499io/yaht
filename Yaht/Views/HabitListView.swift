@@ -22,7 +22,7 @@ struct HabitListView: View {
                 content
             }
         }
-        .navigationTitle("Yaht")
+        .navigationTitle("yaht")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
