@@ -13,16 +13,17 @@ enum ActivityStyle {
     static let cellSpacing: CGFloat = 3
     static let cornerRadius: CGFloat = 3.5
 
-    /// In-range day with no activity — a clear lattice step above the card.
-    static let emptyFill = Color(hex: "262B37") ?? Cyberdream.elevated
+    /// In-range day with no activity — a quiet lattice, only just above the card
+    /// so completed days are what the eye lands on (the grid must not overwhelm).
+    static let emptyFill = Color(hex: "20242D") ?? Cyberdream.elevated
     /// Out-of-range day (pre-creation or future) — a faint ghost of the lattice.
-    static let ghostFill = Color(hex: "1B1F28") ?? Cyberdream.surface
+    static let ghostFill = Color(hex: "191D24") ?? Cyberdream.surface
 
     /// Fill for a day with activity. `level` in `0...1` (completion fraction /
-    /// progress). Composited over ``emptyFill`` so low levels stay legible and a
-    /// full day reads as the solid habit color.
+    /// progress). Composited over ``emptyFill``; the high floor makes even a
+    /// single completion pop clearly off the quiet empty lattice.
     static func fill(_ color: Color, level: Double) -> Color {
-        mix(emptyFill, color, 0.4 + 0.6 * min(max(level, 0), 1))
+        mix(emptyFill, color, 0.55 + 0.45 * min(max(level, 0), 1))
     }
 
     /// Legend steps, low → high. `0` renders as ``emptyFill``.
