@@ -33,7 +33,7 @@ struct HabitEditView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .cancelAction) {
+        ToolbarItem(placement: .cancellationAction) {
             Button("Cancel") { dismiss() }
                 .accessibilityIdentifier("habit-edit-cancel")
         }
