@@ -31,6 +31,9 @@ SwiftData + CloudKit mirroring imposes hard rules — violating them crashes con
 | `createdAt` | `Date` | `Date()` | |
 | `isArchived` | `Bool` | `false` | soft-delete / hide without losing history |
 | `sortOrder` | `Int` | `0` | manual ordering in the list |
+| `kind` | `String` | `"binary"` | raw of `HabitKind` — per-habit tracking mode (binary vs count) |
+| `dailyTarget` | `Int` | `1` | count-based goal per due day (e.g. 8 glasses). `1` for binary |
+| `unit` | `String?` | `nil` | optional count label for UI ("glasses", "reps"); `nil` for binary |
 | `scheduleKind` | `String` | `"daily"` | raw of `ScheduleKind` |
 | `scheduleDaysMask` | `Int` | `0` | weekday bitmask when `scheduleKind == specificWeekdays` (bit0=Sun…bit6=Sat) |
 | `intervalDays` | `Int` | `1` | when `scheduleKind == everyNDays` |
@@ -49,22 +52,33 @@ SwiftData + CloudKit mirroring imposes hard rules — violating them crashes con
 | `isEnabled` | `Bool` | `true` | |
 | `habit` | `Habit?` | `nil` | inverse |
 
-### `HabitLog`  (one completion record per habit per day)
+### `HabitLog`  (one record per habit per day, for both kinds)
 | Property | Type | Default | Notes |
 |---|---|---|---|
 | `id` | `UUID` | `UUID()` | |
 | `day` | `Date` | `Date()` | normalized to `startOfDay` (local) — app enforces one-per-day |
-| `completedAt` | `Date` | `Date()` | actual timestamp of the tap |
+| `count` | `Int` | `1` | **binary:** `1` = done. **count:** running total for the day (e.g. 5 of 8) |
+| `updatedAt` | `Date` | `Date()` | timestamp of the last tap/increment |
 | `habit` | `Habit?` | `nil` | inverse |
 
-> Binary done/not-done per day (typical habit-tracker model). A missing `HabitLog` for a due day =
-> not done. This keeps the activity grid a simple per-day lookup.
+> **One `HabitLog` per habit per day** regardless of kind. Missing log for a due day = not done.
+> - **Binary** habit: log exists with `count == 1` ⇒ done.
+> - **Count** habit: `count` accumulates; **completed** when `count >= habit.dailyTarget`. The
+>   activity grid can render a *partial* fill from `count / dailyTarget`.
+>
+> Keeping the log shape identical for both kinds means the grid, streaks, and store API stay uniform;
+> only the "is this day complete?" predicate branches on `habit.kind`.
 
 ---
 
 ## Enums (stored as raw values)
 
 ```
+enum HabitKind: String, Codable, CaseIterable {
+    case binary  // done / not-done per day
+    case count   // accumulate toward dailyTarget per day (e.g. 8 glasses of water)
+}
+
 enum ScheduleKind: String, Codable, CaseIterable {
     case daily            // every day
     case specificWeekdays // scheduleDaysMask
@@ -80,8 +94,9 @@ enum ReminderScope: String, Codable, CaseIterable {
 ```
 
 `Habit` gets computed helpers (non-persisted): `color: Color` (from `colorHex`), `isDue(on:)`
-(interprets schedule), `isCompleted(on:)` (queries logs). These live in a `Habit+Logic.swift`
-extension, unit-tested.
+(interprets schedule), `isCompleted(on:)` (binary: log exists; count: `dayCount >= dailyTarget`),
+and `progress(on:) -> Double` (0…1; binary is 0 or 1, count is `dayCount / dailyTarget` clamped —
+drives partial grid fills). These live in a `Habit+Logic.swift` extension, unit-tested.
 
 ---
 
@@ -104,8 +119,10 @@ Support, `cloudKitDatabase: .automatic`, backup-exclude + move-aside recovery.
 
 `HabitStore` protocol (+ `HabitStoreProtocol`) with a SwiftData impl and a configurable mock
 (spy flags + stubbed results, `throw MockError.notConfigured` default — LESSONS §5):
-- `create/update/delete/archive(Habit)`, `reorder`, `toggleCompletion(habit:day:)`,
-  `logs(for:in:)`, `allActiveHabits()`.
+- `create/update/delete/archive(Habit)`, `reorder`, `logs(for:in:)`, `allActiveHabits()`.
+- **Completion mutation branches on kind:** `toggleCompletion(habit:day:)` for binary (create/remove
+  the day's log); `increment(habit:day:by:)` / `setCount(habit:day:to:)` for count (upsert the day's
+  log, clamp at ≥0). Both keep the one-log-per-day invariant.
 Views never touch `modelContext` directly (thin views rule).
 
 ## Entitlements / capabilities added this step
@@ -118,15 +135,18 @@ Views never touch `modelContext` directly (thin views rule).
 
 ## Tests
 - `Habit+Logic`: `isDue(on:)` across all four `ScheduleKind`s incl. weekday-mask + everyN edge cases;
-  `isCompleted(on:)`; `color` parsing.
-- `HabitStore` (SwiftData, in-memory container): create→fetch, toggle idempotency (no dup log for
-  same day), cascade delete removes logs+reminders, archive hides from `allActiveHabits`.
+  `isCompleted(on:)` and `progress(on:)` for **both** kinds (binary 0/1; count below/at/over target);
+  `color` parsing.
+- `HabitStore` (SwiftData, in-memory container): create→fetch; binary toggle idempotency (no dup log
+  for same day); count increment/setCount upsert (single log accrues, clamps at 0, crossing target
+  flips `isCompleted`); cascade delete removes logs+reminders; archive hides from `allActiveHabits`.
 
 ---
 
 ## Resolved decisions (2026-07-09)
-1. **Completion = binary** done/not-done per habit per day. A count-based target may come in a later
-   schema version if needed.
+1. **Two habit kinds, chosen per habit** via `Habit.kind` (`HabitKind`): **binary** (done/not-done) and
+   **count** (accumulate toward `dailyTarget`, e.g. 8 glasses). Same `HabitLog` shape for both; only the
+   "day complete?" predicate and the completion mutation branch on kind.
 2. **All four `ScheduleKind`s** ship in v1: `daily`, `specificWeekdays`, `everyNDays`, `timesPerWeek`.
    `timesPerWeek` is a flexible target — the grid shows progress toward N; no specific day is "missed".
 3. **Multiple reminders per habit** — each with `everyDay` / `weekdaysOnly` / `weekendsOnly` scope.
