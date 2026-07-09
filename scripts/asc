@@ -41,10 +41,8 @@ KEY_FILE="${ASC_AUTH_KEY:-$SCRIPT_DIR/AuthKey_$KEY_ID.p8}"
 APP_ID="6789257705"
 BETA_GROUP_ID="3e37f4ab-2c4b-4f8a-9300-cb80df485f7d"       # yaht_testing (internal)
 EXTERNAL_GROUP_ID="d2ef6254-ee47-4601-9d68-2a3e6592f583"   # yaht_external (external)
-# TODO_YAHT: fill once Xcode Cloud is enabled for yaht and the archive workflow exists.
-# Fetch with: asc workflows (needs CI_PRODUCT_ID) — or GET /v1/ciProducts then /workflows.
-WORKFLOW_ID="TODO_YAHT_WORKFLOW_ID"
-CI_PRODUCT_ID="TODO_YAHT_CI_PRODUCT_ID"
+WORKFLOW_ID="D7942B87-4265-4062-A2EF-46708FF4B9C2"        # "yaht default" (Archive iOS, manual start)
+CI_PRODUCT_ID="DFEF6E90-2583-4315-8E7A-174DD7DF1041"      # used by `asc workflows`
 BASE="https://api.appstoreconnect.apple.com/v1"
 
 # --- Auth ---
