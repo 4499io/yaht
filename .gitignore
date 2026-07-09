@@ -1,0 +1,130 @@
+# =====================
+# macOS
+# =====================
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# =====================
+# Xcode
+# =====================
+# Build output
+build/
+DerivedData/
+
+# Xcode project user-specific settings
+xcuserdata/
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+*.xcworkspace/xcshareddata/swiftpm/configuration
+
+# Xcode local settings (keep xcshareddata/xcschemes if you want shared schemes)
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# Xcode Playground output files
+timeline.xctimeline
+playground.xcworkspace
+
+# Legacy Xcode 3 build style
+*.moved-aside
+
+# =====================
+# Swift Package Manager
+# =====================
+# Commit Package.resolved for apps (omit for libraries)
+# .build/ is the SPM local build cache — always ignore
+.build/
+.swiftpm/xcode/package.xcworkspace/
+
+# =====================
+# CocoaPods (if used)
+# =====================
+# Pods/ — whether to commit this is debated.
+# Committing it makes CI faster but the repo much larger.
+# Most teams ignore it and run `pod install` in CI.
+Pods/
+# Keep Podfile.lock committed — it pins dependency versions
+# !Podfile.lock  <-- do NOT add this line; Podfile.lock should be tracked
+
+# =====================
+# Carthage (if used)
+# =====================
+Carthage/Build/
+# Commit Cartfile.resolved, ignore build artifacts
+
+# =====================
+# Fastlane (if used)
+# =====================
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+
+# =====================
+# Code signing
+# =====================
+# Never commit certificates or provisioning profiles
+*.p12
+*.mobileprovision
+*.cer
+
+# =====================
+# Testing & Coverage
+# =====================
+*.xcresult
+
+# =====================
+# Simulator & Instruments
+# =====================
+*.moved-aside
+*.hmap
+
+# =====================
+# Crashlytics / Firebase
+# =====================
+crashlytics-build.properties
+fabric.properties
+
+# =====================
+# Editors / IDEs
+# =====================
+.idea/
+*.swp
+*~
+.mcp.json
+
+# =====================
+# Environment / Secrets
+# =====================
+.env
+.env.*
+.envrc
+*.p8
+!.env.example
+Secrets.swift
+secrets.plist
+Local.xcconfig
+testing-creds.txt
+appstoreconnect.txt
+.claude/worktrees/
+
+# Local build output log (was accidentally tracked)
+build.log

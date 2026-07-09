@@ -1,0 +1,383 @@
+#!/usr/bin/env bash
+# asc — App Store Connect CLI wrapper for Xcode Cloud + TestFlight
+# Usage: asc <command> [args]
+#
+# Commands:
+#   builds                  List recent Xcode Cloud build runs
+#   build-status [<number>] Show status of a build run (default: latest)
+#   test-results [<number>] Show test results for a build run (default: latest)
+#   build-log <action-id>   List artifacts/logs for a build action
+#   testflight              List recent TestFlight builds
+#   distribute <build>      Distribute a build to beta groups (accepts build number or UUID)
+#   whats-new <build> "text" Set "What to Test" for a build
+#   submit <build> ["text"]  Submit for external review (prompts for "What to Test" if omitted)
+#   groups                  List beta groups
+#   workflows               List Xcode Cloud workflows
+#   trigger <branch>        Trigger a build on a branch (bypasses file filter)
+#
+# ── ONE-TIME SETUP for Yaht (new app in App Store Connect) ────────────────────
+# KEY_ID / ISSUER_ID are ACCOUNT-level (same Apple developer account as 99issues)
+# so they carry over unchanged. The IDs below marked TODO_YAHT are APP-level and
+# do NOT exist until Yaht is created in App Store Connect + Xcode Cloud. To fill:
+#   1. Create the app in ASC (bundle io.4499.yaht), set up the Xcode Cloud workflow.
+#   2. APP_ID:         `asc` -> use `curl .../v1/apps` or read from ASC URL.
+#   3. WORKFLOW_ID / ciProducts id: run `asc workflows` once APP_ID is set — but
+#      cmd_workflows itself needs the ciProducts id; get it from
+#      GET /v1/ciProducts (filter by app) or the Xcode Cloud web UI.
+#   4. BETA_GROUP_ID / EXTERNAL_GROUP_ID: create beta groups, then `asc groups`.
+# ──────────────────────────────────────────────────────────────────────────────
+
+set -euo pipefail
+
+# --- Config ---
+# CI overrides via env (ASC_KEY_ID / ASC_ISSUER_ID / ASC_AUTH_KEY); fall back to local defaults.
+# Account-level (shared with 99issues — same developer account):
+KEY_ID="${ASC_KEY_ID:-8BRH9K8J5T}"
+ISSUER_ID="${ASC_ISSUER_ID:-f3b5c284-ea1b-4fb7-8e81-5d8a69389cc4}"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# ASC_AUTH_KEY is a GitLab File-type variable: its value is the path to the .p8 on the runner.
+KEY_FILE="${ASC_AUTH_KEY:-$SCRIPT_DIR/AuthKey_$KEY_ID.p8}"
+# App-level — TODO_YAHT: fill after creating Yaht in App Store Connect / Xcode Cloud.
+APP_ID="TODO_YAHT_APP_ID"
+WORKFLOW_ID="TODO_YAHT_WORKFLOW_ID"
+BETA_GROUP_ID="TODO_YAHT_BETA_GROUP_ID"
+EXTERNAL_GROUP_ID="TODO_YAHT_EXTERNAL_GROUP_ID"
+CI_PRODUCT_ID="TODO_YAHT_CI_PRODUCT_ID"   # GET /v1/ciProducts — used by `asc workflows`
+BASE="https://api.appstoreconnect.apple.com/v1"
+
+# --- Auth ---
+token() {
+    python3 -c "
+import jwt, time
+with open('$KEY_FILE') as f: key = f.read()
+now = int(time.time())
+print(jwt.encode({'iss':'$ISSUER_ID','iat':now,'exp':now+1200,'aud':'appstoreconnect-v1'}, key, algorithm='ES256', headers={'kid':'$KEY_ID'}))
+"
+}
+
+api() {
+    local method="${1:-GET}"
+    local path="$2"
+    shift 2
+    curl -s -X "$method" -H "Authorization: Bearer $(token)" -H "Content-Type: application/json" "$@" "$BASE$path"
+}
+
+api_get() {
+    curl -s -G -H "Authorization: Bearer $(token)" "$@"
+}
+
+# --- Helpers ---
+
+# Resolve a build run ID from a build number, or return the latest build run ID
+resolve_build_run_id() {
+    local number="${1:-}"
+    if [ -z "$number" ]; then
+        api_get \
+            --data-urlencode "limit=1" \
+            --data-urlencode "sort=-number" \
+            "$BASE/ciWorkflows/$WORKFLOW_ID/buildRuns" \
+        | jq -r '.data[0].id // empty'
+    else
+        api_get \
+            --data-urlencode "limit=50" \
+            --data-urlencode "sort=-number" \
+            "$BASE/ciWorkflows/$WORKFLOW_ID/buildRuns" \
+        | jq -r --arg num "$number" '.data[] | select(.attributes.number == ($num | tonumber)) | .id'
+    fi
+}
+
+# --- Commands ---
+
+cmd_builds() {
+    echo "Recent Xcode Cloud build runs:"
+    echo ""
+    api_get \
+        --data-urlencode "limit=15" \
+        --data-urlencode "sort=-number" \
+        "$BASE/ciWorkflows/$WORKFLOW_ID/buildRuns" \
+    | jq -r '.data[] | "  #\(.attributes.number)  \(.attributes.completionStatus // .attributes.executionProgress)  \(.attributes.startedDate // "pending")  \(.attributes.sourceCommit.message | split("\n")[0])"'
+}
+
+cmd_build_status() {
+    local run_id
+    run_id=$(resolve_build_run_id "${1:-}")
+
+    if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+        echo "Error: build not found"
+        exit 1
+    fi
+
+    local data
+    data=$(api GET "/ciBuildRuns/$run_id")
+
+    echo "$data" | jq -r '"Build #\(.data.attributes.number)  \(.data.attributes.completionStatus // .data.attributes.executionProgress)"'
+    echo "$data" | jq -r '"Started:  \(.data.attributes.startedDate // "pending")"'
+    echo "$data" | jq -r '"Finished: \(.data.attributes.finishedDate // "in progress")"'
+    echo "$data" | jq -r '"Commit:   \(.data.attributes.sourceCommit.message | split("\n")[0])"'
+
+    echo ""
+    echo "Actions:"
+    api GET "/ciBuildRuns/$run_id/actions" \
+    | jq -r '.data[] | "  \(.attributes.name)  \(.attributes.actionType)  \(.attributes.completionStatus // .attributes.executionProgress)  id:\(.id)"'
+}
+
+cmd_test_results() {
+    local run_id
+    run_id=$(resolve_build_run_id "${1:-}")
+
+    if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+        echo "Error: build not found"
+        exit 1
+    fi
+
+    # Find the TEST action
+    local actions_json
+    actions_json=$(api GET "/ciBuildRuns/$run_id/actions")
+
+    local test_action_id
+    test_action_id=$(echo "$actions_json" | jq -r '.data[] | select(.attributes.actionType == "TEST") | .id')
+
+    if [ -z "$test_action_id" ]; then
+        echo "No test action found for this build."
+        exit 1
+    fi
+
+    local test_status
+    test_status=$(echo "$actions_json" | jq -r '.data[] | select(.attributes.actionType == "TEST") | .attributes.completionStatus // .attributes.executionProgress')
+    echo "Test action: $test_status"
+    echo ""
+
+    # Get test results
+    local results
+    results=$(api GET "/ciBuildActions/$test_action_id/testResults")
+
+    local total passed failed
+    total=$(echo "$results" | jq '.data | length')
+    passed=$(echo "$results" | jq '[.data[] | select(.attributes.status == "SUCCESS")] | length')
+    failed=$(echo "$results" | jq '[.data[] | select(.attributes.status != "SUCCESS")] | length')
+
+    echo "Total: $total  Passed: $passed  Failed: $failed"
+
+    if [ "$failed" -gt 0 ]; then
+        echo ""
+        echo "Failed tests:"
+        echo "$results" | jq -r '.data[] | select(.attributes.status != "SUCCESS") | "  \(.attributes.status)  \(.attributes.className).\(.attributes.name)  \(.attributes.message // "")"'
+    fi
+}
+
+cmd_build_log() {
+    local action_id="${1:?Usage: asc build-log <action-id>}"
+    api GET "/ciBuildActions/$action_id/artifacts" \
+    | jq '.data[] | {fileName: .attributes.fileName, downloadUrl: .attributes.downloadUrl}'
+}
+
+cmd_testflight() {
+    echo "Recent TestFlight builds:"
+    echo ""
+    api_get \
+        --data-urlencode "filter[app]=$APP_ID" \
+        --data-urlencode "sort=-uploadedDate" \
+        --data-urlencode "limit=10" \
+        --data-urlencode "fields[builds]=version,uploadedDate,processingState,expired,minOsVersion" \
+        "$BASE/builds" \
+    | jq -r '.data[] | "  build \(.attributes.version)  \(.attributes.processingState)  \(.attributes.uploadedDate)  id:\(.id)"'
+}
+
+# Resolve a TestFlight build number to its ASC UUID
+resolve_build_id() {
+    local version="$1"
+    api_get \
+        --data-urlencode "filter[app]=$APP_ID" \
+        --data-urlencode "filter[version]=$version" \
+        --data-urlencode "fields[builds]=version" \
+        "$BASE/builds" \
+    | jq -r '.data[0].id // empty'
+}
+
+cmd_distribute() {
+    local input="${1:?Usage: asc distribute <build-number>}"
+    local build_id
+
+    # If input looks like a UUID, use it directly; otherwise resolve build number
+    if [[ "$input" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+        build_id="$input"
+    else
+        echo "Resolving build $input..."
+        build_id=$(resolve_build_id "$input")
+        if [ -z "$build_id" ]; then
+            echo "Error: build $input not found in TestFlight"
+            exit 1
+        fi
+        echo "Found: $build_id"
+    fi
+
+    echo "Distributing build to beta groups..."
+    api POST "/betaGroups/$BETA_GROUP_ID/relationships/builds" \
+        -d "{\"data\": [{\"type\": \"builds\", \"id\": \"$build_id\"}]}"
+    echo "  Added to yaht_testing (internal)"
+    api POST "/betaGroups/$EXTERNAL_GROUP_ID/relationships/builds" \
+        -d "{\"data\": [{\"type\": \"builds\", \"id\": \"$build_id\"}]}"
+    echo "  Added to yaht_external (external)"
+    echo "Done."
+}
+
+cmd_whats_new() {
+    local input="${1:?Usage: asc whats-new <build-number> \"text\"}"
+    local text="${2:?Usage: asc whats-new <build-number> \"text\"}"
+    local build_id
+
+    # Resolve build number to UUID
+    if [[ "$input" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+        build_id="$input"
+    else
+        build_id=$(resolve_build_id "$input")
+        if [ -z "$build_id" ]; then
+            echo "Error: build $input not found in TestFlight"
+            exit 1
+        fi
+    fi
+
+    # Find existing localization for this build
+    local loc_id
+    loc_id=$(api_get \
+        --data-urlencode "filter[build]=$build_id" \
+        "$BASE/betaBuildLocalizations" \
+    | jq -r '.data[0].id // empty')
+
+    if [ -n "$loc_id" ]; then
+        # Update existing localization
+        api PATCH "/betaBuildLocalizations/$loc_id" \
+            -d "{\"data\": {\"type\": \"betaBuildLocalizations\", \"id\": \"$loc_id\", \"attributes\": {\"whatsNew\": \"$text\"}}}" \
+        | jq '{id: .data.id, locale: .data.attributes.locale, whatsNew: .data.attributes.whatsNew}'
+    else
+        # Create new localization
+        api POST "/betaBuildLocalizations" \
+            -d "{\"data\": {\"type\": \"betaBuildLocalizations\", \"attributes\": {\"locale\": \"en-US\", \"whatsNew\": \"$text\"}, \"relationships\": {\"build\": {\"data\": {\"type\": \"builds\", \"id\": \"$build_id\"}}}}}" \
+        | jq '{id: .data.id, locale: .data.attributes.locale, whatsNew: .data.attributes.whatsNew}'
+    fi
+    echo "\"What to Test\" updated."
+}
+
+cmd_submit() {
+    local input="${1:?Usage: asc submit <build-number> [\"What to Test text\"]}"
+    local whats_new="${2:-}"
+    local build_id
+
+    # If input looks like a UUID, use it directly; otherwise resolve build number
+    if [[ "$input" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+        build_id="$input"
+    else
+        echo "Resolving build $input..."
+        build_id=$(resolve_build_id "$input")
+        if [ -z "$build_id" ]; then
+            echo "Error: build $input not found in TestFlight"
+            exit 1
+        fi
+        echo "Found: $build_id"
+    fi
+
+    # Prompt for "What to Test" if not provided
+    if [ -z "$whats_new" ]; then
+        echo -n "What to Test: "
+        read -r whats_new
+        if [ -z "$whats_new" ]; then
+            echo "Error: \"What to Test\" text is required for external review."
+            exit 1
+        fi
+    fi
+
+    # Set "What to Test" text
+    echo "Setting \"What to Test\"..."
+    cmd_whats_new "$build_id" "$whats_new"
+
+    echo "Submitting build for external TestFlight review..."
+    api POST "/betaAppReviewSubmissions" \
+        -d "{
+            \"data\": {
+                \"type\": \"betaAppReviewSubmissions\",
+                \"relationships\": {
+                    \"build\": {
+                        \"data\": {\"type\": \"builds\", \"id\": \"$build_id\"}
+                    }
+                }
+            }
+        }" \
+    | jq '{id: .data.id, status: .data.attributes.betaReviewState}'
+    echo "Submitted. Apple usually approves within 24 hours."
+}
+
+cmd_groups() {
+    api_get \
+        --data-urlencode "filter[app]=$APP_ID" \
+        "$BASE/betaGroups" \
+    | jq '.data[] | {id: .id, name: .attributes.name, isInternal: .attributes.isInternalGroup, feedbackEnabled: .attributes.feedbackEnabled}'
+}
+
+cmd_workflows() {
+    api GET "/ciProducts/$CI_PRODUCT_ID/workflows" \
+    | jq '.data[] | {id: .id, name: .attributes.name, enabled: .attributes.isEnabled, actions: [.attributes.actions[]? | "\(.name) (\(.actionType))"]}'
+}
+
+cmd_trigger() {
+    local branch="${1:?Usage: asc trigger <branch-name>}"
+
+    # Look up git reference ID for the branch
+    local repo_id
+    repo_id=$(api GET "/scmRepositories" | jq -r '.data[0].id')
+
+    local ref_id
+    ref_id=$(api_get \
+        --data-urlencode "limit=200" \
+        "$BASE/scmRepositories/$repo_id/gitReferences" \
+    | jq -r --arg name "$branch" '.data[] | select(.attributes.name == $name and .attributes.kind == "BRANCH") | .id // empty')
+
+    if [ -z "$ref_id" ]; then
+        echo "Error: branch '$branch' not found in Xcode Cloud SCM references"
+        exit 1
+    fi
+
+    echo "Triggering build on branch '$branch' (ref: $ref_id)..."
+    api POST "/ciBuildRuns" \
+        -d "{
+            \"data\": {
+                \"type\": \"ciBuildRuns\",
+                \"attributes\": {},
+                \"relationships\": {
+                    \"workflow\": {\"data\": {\"type\": \"ciWorkflows\", \"id\": \"$WORKFLOW_ID\"}},
+                    \"sourceBranchOrTag\": {\"data\": {\"type\": \"scmGitReferences\", \"id\": \"$ref_id\"}}
+                }
+            }
+        }" \
+    | jq '{id: .data.id, number: .data.attributes.number, status: .data.attributes.executionProgress}'
+}
+
+# --- Dispatch ---
+case "${1:-help}" in
+    builds)        cmd_builds ;;
+    build-status)  cmd_build_status "${2:-}" ;;
+    test-results)  cmd_test_results "${2:-}" ;;
+    build-log)     cmd_build_log "${2:-}" ;;
+    testflight)    cmd_testflight ;;
+    distribute)    cmd_distribute "${2:-}" ;;
+    whats-new)     cmd_whats_new "${2:-}" "${3:-}" ;;
+    submit)        cmd_submit "${2:-}" "${3:-}" ;;
+    groups)        cmd_groups ;;
+    workflows)     cmd_workflows ;;
+    trigger)       cmd_trigger "${2:-}" ;;
+    *)
+        echo "asc — App Store Connect CLI for Yaht"
+        echo ""
+        echo "Commands:"
+        echo "  builds                  List recent Xcode Cloud build runs"
+        echo "  build-status [<number>] Show details of a build run (default: latest)"
+        echo "  test-results [<number>] Show test results for a build (default: latest)"
+        echo "  build-log <action-id>   List artifacts for a build action"
+        echo "  testflight              List recent TestFlight builds"
+        echo "  distribute <build>      Distribute to beta groups (build number or UUID)"
+        echo "  whats-new <build> \"text\" Set \"What to Test\" for a build"
+        echo "  submit <build> [\"text\"] Submit for external review (prompts for What to Test)"
+        echo "  groups                  List beta groups"
+        echo "  workflows               List Xcode Cloud workflows"
+        echo "  trigger <branch>        Trigger a build on a branch (bypasses file filter)"
+        ;;
+esac

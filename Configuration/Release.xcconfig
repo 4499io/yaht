@@ -1,0 +1,12 @@
+// Release configuration for Yaht
+//
+// Optional Sentry / analytics credentials: create Configuration/Local.xcconfig
+// (gitignored) with SENTRY_DSN and any analytics vars you use.
+// Services are safe no-ops when unconfigured — a fresh checkout builds and runs
+// without any secrets.
+
+#include? "Local.xcconfig"
+
+// Note: SentryDSN (and any analytics keys) are surfaced to runtime via
+// $(VARIABLE) substitution in Info.plist, NOT INFOPLIST_KEY_ — the latter
+// breaks on values containing @ (e.g. a Sentry DSN).
