@@ -28,19 +28,14 @@ if [[ -z "${CI_ARCHIVE_PATH:-}" || ! -d "${DSYMS_PATH}" ]]; then
 fi
 
 # Verify Sentry credentials.
-# We only reach this point on archive builds (non-archive actions exited 0
-# above), and an archive without symbolication is a release we cannot debug —
-# so missing credentials FAIL the build loudly instead of silently skipping.
+# yaht has no Sentry SDK yet, so dSYM upload is optional: skip cleanly when
+# unconfigured. Once Sentry is added, set SENTRY_AUTH_TOKEN/ORG/PROJECT in the
+# Xcode Cloud workflow env and this uploads automatically.
+# TODO(sentry): once the SDK is integrated, flip this back to a hard failure so
+# a mis-set variable can never ship an unsymbolicated release (see 99issues).
 if [[ -z "${SENTRY_AUTH_TOKEN:-}" || -z "${SENTRY_ORG:-}" || -z "${SENTRY_PROJECT:-}" ]]; then
-    echo "=================================================================" >&2
-    echo "ERROR: dSYM upload credentials missing for an ARCHIVE build." >&2
-    echo "  SENTRY_AUTH_TOKEN set: $([[ -n "${SENTRY_AUTH_TOKEN:-}" ]] && echo yes || echo NO)" >&2
-    echo "  SENTRY_ORG set:        $([[ -n "${SENTRY_ORG:-}" ]] && echo yes || echo NO)" >&2
-    echo "  SENTRY_PROJECT set:    $([[ -n "${SENTRY_PROJECT:-}" ]] && echo yes || echo NO)" >&2
-    echo "Set these in the Xcode Cloud workflow environment. Failing the" >&2
-    echo "build so a mis-set variable can never ship an unsymbolicated release." >&2
-    echo "=================================================================" >&2
-    exit 1
+    echo "Sentry not configured (no SDK integrated yet) — skipping dSYM upload."
+    exit 0
 fi
 
 echo "Installing sentry-cli..."

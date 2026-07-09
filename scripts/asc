@@ -37,12 +37,14 @@ ISSUER_ID="${ASC_ISSUER_ID:-f3b5c284-ea1b-4fb7-8e81-5d8a69389cc4}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # ASC_AUTH_KEY is a GitLab File-type variable: its value is the path to the .p8 on the runner.
 KEY_FILE="${ASC_AUTH_KEY:-$SCRIPT_DIR/AuthKey_$KEY_ID.p8}"
-# App-level — TODO_YAHT: fill after creating Yaht in App Store Connect / Xcode Cloud.
-APP_ID="TODO_YAHT_APP_ID"
+# App-level for yaht.
+APP_ID="6789257705"
+BETA_GROUP_ID="3e37f4ab-2c4b-4f8a-9300-cb80df485f7d"       # yaht_testing (internal)
+EXTERNAL_GROUP_ID="d2ef6254-ee47-4601-9d68-2a3e6592f583"   # yaht_external (external)
+# TODO_YAHT: fill once Xcode Cloud is enabled for yaht and the archive workflow exists.
+# Fetch with: asc workflows (needs CI_PRODUCT_ID) — or GET /v1/ciProducts then /workflows.
 WORKFLOW_ID="TODO_YAHT_WORKFLOW_ID"
-BETA_GROUP_ID="TODO_YAHT_BETA_GROUP_ID"
-EXTERNAL_GROUP_ID="TODO_YAHT_EXTERNAL_GROUP_ID"
-CI_PRODUCT_ID="TODO_YAHT_CI_PRODUCT_ID"   # GET /v1/ciProducts — used by `asc workflows`
+CI_PRODUCT_ID="TODO_YAHT_CI_PRODUCT_ID"
 BASE="https://api.appstoreconnect.apple.com/v1"
 
 # --- Auth ---
