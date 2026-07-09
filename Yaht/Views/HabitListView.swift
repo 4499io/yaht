@@ -15,14 +15,23 @@ struct HabitListView: View {
     @State private var showingEditor = false
 
     var body: some View {
-        Group {
-            if habits.isEmpty {
-                emptyState
-            } else {
-                content
+        VStack(alignment: .leading, spacing: 0) {
+            YahtWordmark()
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 12)
+
+            Group {
+                if habits.isEmpty {
+                    emptyState
+                } else {
+                    content
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle("yaht")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -41,10 +50,8 @@ struct HabitListView: View {
     private var content: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                GlassCard {
-                    GlobalActivityGridView(habits: habits)
-                }
-                .accessibilityIdentifier("global-activity-grid")
+                GlobalActivityGridView(habits: habits)
+                    .accessibilityIdentifier("global-activity-grid")
 
                 ForEach(habits) { habit in
                     HabitRowView(habit: habit, day: Date())
