@@ -16,7 +16,8 @@ struct YahtWordmark: View {
             Text("y")
                 .font(.system(size: ySize, weight: .heavy, design: .rounded))
                 .foregroundStyle(Cyberdream.textPrimary)
-                .alignmentGuide(.capTop) { _ in Self.capInset(ySize, .heavy) }
+                // A lowercase "y" has no cap/ascender — its top is the x-height.
+                .alignmentGuide(.capTop) { _ in Self.glyphTopInset(ySize, .heavy, metric: .xHeight) }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("aht")
@@ -26,21 +27,26 @@ struct YahtWordmark: View {
                     .font(.system(size: tagSize, weight: .medium, design: .rounded))
                     .foregroundStyle(Cyberdream.textSecondary)
             }
-            // The stack's cap-top is "aht"'s cap-top (aht is the first line).
-            .alignmentGuide(.capTop) { _ in Self.capInset(topSize, .heavy) }
+            // "aht"'s visible top is the ascender/cap of h & t (aht is line 1).
+            .alignmentGuide(.capTop) { _ in Self.glyphTopInset(topSize, .heavy, metric: .capHeight) }
         }
         .accessibilityElement()
         .accessibilityLabel("yaht — yet another habit tracker")
         .accessibilityAddTraits(.isHeader)
     }
 
-    /// Distance from a rendered text view's top to the cap top of its glyphs, so
-    /// two different sizes can be aligned by their caps (a shared ceiling).
-    private static func capInset(_ size: CGFloat, _ weight: UIFont.Weight) -> CGFloat {
+    private enum TopMetric { case xHeight, capHeight }
+
+    /// Distance from a rendered text view's top down to the visible top of its
+    /// glyphs, so runs of different sizes align by where their letters actually
+    /// end. Use `.xHeight` for the lowercase "y" (its top is the x-height) and
+    /// `.capHeight` for "aht" (its top is the ascender of h/t).
+    private static func glyphTopInset(_ size: CGFloat, _ weight: UIFont.Weight, metric: TopMetric) -> CGFloat {
         let base = UIFont.systemFont(ofSize: size, weight: weight)
         let font = base.fontDescriptor.withDesign(.rounded)
             .map { UIFont(descriptor: $0, size: size) } ?? base
-        return font.ascender - font.capHeight
+        let top = metric == .xHeight ? font.xHeight : font.capHeight
+        return font.ascender - top
     }
 }
 
