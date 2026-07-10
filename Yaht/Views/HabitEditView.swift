@@ -27,6 +27,9 @@ struct HabitEditView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
         }
+        // Sheets present at window level — cap this one to iPhone width too so it
+        // doesn't stretch on iPad (Guideline 4 — see 99issues #418).
+        .phoneWidthConstrained()
     }
 
     // MARK: - Toolbar
