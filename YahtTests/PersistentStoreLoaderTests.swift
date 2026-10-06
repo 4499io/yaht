@@ -98,11 +98,10 @@ struct PersistentStoreLoaderTests {
     }
 
     private func makeLocalContainer(at url: URL) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: CurrentSchema.self)
+        let schema = Schema(versionedSchema: SchemaV1.self)
         let configuration = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)
         return try ModelContainer(
             for: schema,
-            migrationPlan: AppMigrationPlan.self,
             configurations: [configuration]
         )
     }

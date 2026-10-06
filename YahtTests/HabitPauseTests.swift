@@ -10,7 +10,7 @@ struct HabitPauseTests {
     private let calendar = Calendar.current
 
     private func makeStore() throws -> (ModelContainer, HabitStore) {
-        let schema = Schema(versionedSchema: CurrentSchema.self)
+        let schema = Schema(versionedSchema: SchemaV1.self)
         let container = try ModelContainer(
             for: schema,
             configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]

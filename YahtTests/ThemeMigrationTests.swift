@@ -20,7 +20,7 @@ struct ThemeMigrationTests {
     }
 
     @Test func storeMigratesActiveAndArchivedHabitsOnce() throws {
-        let schema = Schema(versionedSchema: CurrentSchema.self)
+        let schema = Schema(versionedSchema: SchemaV1.self)
         let container = try ModelContainer(
             for: schema,
             configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
