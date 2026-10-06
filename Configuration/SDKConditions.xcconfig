@@ -1,0 +1,52 @@
+// SDK-gated Swift compilation conditions, shared by Debug and Release.
+//
+// YAHT_IOS27_1_SDK compiles code that uses symbols first shipped in the
+// iOS 27.1 SDK (reserved hardware regions, see docs/ios27/adaptive-layout.md).
+// It is set only when building against SDK 27.1 or later, so Xcode 26 and
+// 27.0 builds keep compiling the fallback. Runtime `#available(iOS 27.1, *)`
+// checks still protect older OS versions; the deployment target is unchanged.
+//
+// Conditions match the SDK's canonical name (e.g. iphoneos27.1,
+// iphonesimulator27.2). `27.1*` also matches 27.10 and later minors;
+// `28*`, `29*` and `3*`…`9*` cover later major versions.
+// CI asserts the result: scripts/validate_ios27.py and the iOS 26 job.
+
+YAHT_SDK_CONDITIONS =
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.1*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.2*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.3*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.4*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.5*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.6*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.7*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.8*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos27.9*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos28*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos29*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos3*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos4*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos5*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos6*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos7*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos8*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphoneos9*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.1*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.2*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.3*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.4*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.5*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.6*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.7*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.8*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator27.9*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator28*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator29*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator3*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator4*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator5*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator6*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator7*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator8*] = YAHT_IOS27_1_SDK
+YAHT_SDK_CONDITIONS[sdk=iphonesimulator9*] = YAHT_IOS27_1_SDK
+
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) $(YAHT_SDK_CONDITIONS)

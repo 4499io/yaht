@@ -26,8 +26,18 @@ if pathlib.Path(sys.argv[0]).name == 'xcodebuild':
     if args == ['-version']:
         print('Xcode ' + ('26.3' if scenario == 'old_xcode' else '27.0'))
         sys.exit(0)
-    flag = 'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) YAHT_IOS27_1_SDK'
-    if (flag in args) != (scenario == 'sdk_27_1'):
+    if '-showBuildSettings' in args:
+        # Mirrors Configuration/SDKConditions.xcconfig for the reported SDK.
+        conditions = ['DEBUG'] if args[args.index('-configuration') + 1] == 'Debug' else []
+        if scenario in ('sdk_27_1', 'flag_unexpected'):
+            conditions.append('YAHT_IOS27_1_SDK')
+        print(json.dumps([
+            {'target': 'YahtTests', 'buildSettings': {}},
+            {'target': 'Yaht', 'buildSettings': {'SWIFT_ACTIVE_COMPILATION_CONDITIONS': ' '.join(conditions)}},
+        ]))
+        sys.exit(0)
+    # The project, not the command line, must supply SDK conditions.
+    if any('YAHT_IOS27_1_SDK' in argument for argument in args):
         sys.exit(66)
     if scenario == 'build_failure':
         sys.exit(65)
@@ -47,7 +57,7 @@ if pathlib.Path(sys.argv[0]).name == 'xcodebuild':
     print('STUB BUILD - no Apple build performed')
 else:
     if args[:2] == ['--sdk', 'iphonesimulator']:
-        print('26.4' if scenario == 'old_sdk' else ('27.1' if scenario == 'sdk_27_1' else '27.0'))
+        print('26.4' if scenario == 'old_sdk' else ('27.1' if scenario in ('sdk_27_1', 'flag_missing_27_1') else '27.0'))
     elif args[:3] == ['simctl', 'list', 'devices']:
         print(json.dumps({'devices': {'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [{'udid':'test-id', 'isAvailable': True}]}}))
     elif args[:3] == ['simctl', 'list', 'runtimes']:
@@ -93,6 +103,8 @@ class ValidationTests(unittest.TestCase):
         scenarios = {
             'success': 0,
             'sdk_27_1': 0,
+            'flag_missing_27_1': 1,
+            'flag_unexpected': 1,
             'old_xcode': 1,
             'old_sdk': 1,
             'old_runtime': 1,

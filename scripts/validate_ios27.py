@@ -52,6 +52,21 @@ def check_app_plist(path):
     print(f"Verified launch-screen and scene lifecycle keys: {path}", flush=True)
 
 
+def check_sdk_conditions(settings_json, sdk_version):
+    """Configuration/SDKConditions.xcconfig must set the flag exactly for SDK 27.1+."""
+    targets = [entry for entry in json.loads(settings_json) if entry.get("target") == "Yaht"]
+    if not targets:
+        raise ValidationError("xcodebuild -showBuildSettings reported no Yaht target.")
+    conditions = targets[0].get("buildSettings", {}).get("SWIFT_ACTIVE_COMPILATION_CONDITIONS", "").split()
+    expected = sdk_version >= (27, 1)
+    if ("YAHT_IOS27_1_SDK" in conditions) != expected:
+        raise ValidationError(
+            f"YAHT_IOS27_1_SDK should be {'set' if expected else 'unset'} for SDK "
+            f"{sdk_version[0]}.{sdk_version[1]}; active conditions: {conditions}."
+        )
+    print(f"Active compilation conditions: {' '.join(conditions)}", flush=True)
+
+
 def check_test_summary(summary):
     # xcresulttool's test-results summary fields; fail closed if the schema changes.
     fields = ("totalTestCount", "passedTests", "failedTests")
@@ -113,10 +128,12 @@ def main(argv=None):
         "CODE_SIGNING_ALLOWED=NO", "CODE_SIGNING_REQUIRED=NO", "CODE_SIGN_IDENTITY=",
         "COMPILER_INDEX_STORE_ENABLE=NO",
     ]
-    if sdk_version >= (27, 1):
-        # Pass a literal build-setting argument; no shell expansion is involved.
-        common.append("SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) YAHT_IOS27_1_SDK")
     for configuration, action in (("Debug", "test"), ("Release", "build")):
+        settings = run([
+            "xcodebuild", "-project", str(repository / "Yaht.xcodeproj"), "-scheme", "Yaht",
+            "-sdk", "iphonesimulator", "-configuration", configuration, "-showBuildSettings", "-json",
+        ])
+        check_sdk_conditions(settings, sdk_version)
         derived = output / configuration
         command = common + [
             "-configuration", configuration, "-derivedDataPath", str(derived), action,

@@ -21,20 +21,11 @@ guarded by `#available(iOS 27.1, *)`. Xcode 26 and 27.0 compile the existing
 fallback without that condition. The SDK validation runner should enable
 the condition only when the selected SDK is at least 27.1.
 
-For native Xcode 27.1+ builds, add `YAHT_IOS27_1_SDK` to **Active Compilation
-Conditions** for the app target, preserving existing conditions. For direct
-`xcodebuild` validation, replace the destination placeholder with an installed
-iOS 27.1+ simulator UDID and pass:
-
-```sh
-xcodebuild test -project Yaht.xcodeproj -scheme Yaht \
-  -destination 'platform=iOS Simulator,id=<INSTALLED-27.1-UDID>' \
-  'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) YAHT_IOS27_1_SDK'
-```
-
-Do not enable this condition against SDK 27.0 or infer SDK support from the
-Swift compiler version. Without it, newer native Xcode builds intentionally
-retain the fallback as well.
+`Configuration/SDKConditions.xcconfig` sets the condition automatically for
+SDK 27.1 and later (Xcode, Xcode Cloud and `xcodebuild` alike), so no manual
+build setting is needed. Do not set it by hand for SDK 27.0 or infer SDK
+support from the Swift compiler version. To exercise the 27.1 path, build with
+Xcode 27.1+ and run on an iOS 27.1+ simulator or device.
 
 ## Validation
 

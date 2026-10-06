@@ -5,6 +5,7 @@
 // Services are safe no-ops when unconfigured — a fresh checkout builds and runs
 // without any secrets.
 
+#include "SDKConditions.xcconfig"
 #include? "Local.xcconfig"
 
 // Note: SentryDSN (and any analytics keys) are surfaced to runtime via

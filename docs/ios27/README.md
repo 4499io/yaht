@@ -16,8 +16,8 @@ the remaining work includes checking the generated app and compiling the State
 initializers, rather than blindly changing otherwise valid settings.
 
 New reserved-region APIs are available from **iOS 27.1**, not 27.0. The adaptive
-layout branch preserves baseline builds behind `YAHT_IOS27_1_SDK`; the SDK
-validation runner enables this condition only when it detects SDK 27.1+.
+layout branch preserves baseline builds behind `YAHT_IOS27_1_SDK`, which
+`Configuration/SDKConditions.xcconfig` sets automatically only for SDK 27.1+.
 Use runtime availability checks as well. Compiler version alone does not
 identify the SDK.
 
