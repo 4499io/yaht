@@ -16,23 +16,32 @@ The script verifies macOS, Xcode major version, simulator SDK major version and 
 
 Every invocation creates a fresh directory under the system temporary directory, prints its location, and retains separate DerivedData directories, logs, `Tests.xcresult` and `test-summary.json` for review. Build output goes to the printed log files. A tool failure preserves its exit status. `xcresulttool get test-results summary` must report integer `totalTestCount`, `passedTests` and `failedTests`, at least one executed passing test, and zero failures. An unfamiliar summary schema fails validation and preserves the raw JSON for diagnosis; consult the installed tool's help before adapting the parser. No package or macro verification bypasses are enabled.
 
-For SDK 27.1 or later, the script passes the literal build setting `SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) YAHT_IOS27_1_SDK` to both configurations. This enables SDK-gated adaptive button-style code when present; runtime availability checks still protect earlier OS versions. SDK 27.0 and 26 must leave this condition unset. Swift compiler version alone does not establish SDK 27.1 API availability. For native Xcode builds with SDK 27.1+, append `YAHT_IOS27_1_SDK` to **Active Compilation Conditions** while retaining `$(inherited)` and existing conditions. Remove it when selecting an earlier SDK.
+For SDK 27.1 or later, the script passes the literal build setting `SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) YAHT_IOS27_1_SDK` to both configurations. This enables SDK-gated reserved-region layout code when present; runtime availability checks still protect earlier OS versions. SDK 27.0 and 26 must leave this condition unset. Swift compiler version alone does not establish SDK 27.1 API availability. For native Xcode builds with SDK 27.1+, append `YAHT_IOS27_1_SDK` to **Active Compilation Conditions** while retaining `$(inherited)` and existing conditions. Remove it when selecting an earlier SDK.
 
 Simulator builds disable signing; this check does not validate signed device entitlements, iCloud sync or App Store submission. It performs no deployment and requires no credentials. The current GitLab runner remains on Xcode 26 until an actual Xcode 27 runner is available; no speculative runner image is configured here.
 
 ## State source audit and runtime regression matrix
 
-Current `@State` declarations use private named properties with explicit types or initial values. There are no access modifiers beyond `private`, multi-variable declarations, state-property observers, or custom wrapper declarations to rewrite speculatively. Two initialization sites explicitly construct state storage: `HabitEditView.init` initializes `_viewModel`; `YahtApp.init` initializes `_container` and `_store`. Compile these under the Xcode 27 compiler and investigate actual diagnostics before changing their initialization semantics. Existing Swift Testing suites cover habit logic, storage, notification trigger construction and color blending; they do not exercise SwiftUI state lifetime or presentation.
+The audited `@State` declarations use private named properties with explicit types or initial values. No definite source compatibility defect was identified. Two initialization sites explicitly construct state storage: `HabitEditView.init` initializes `_viewModel`; `YahtApp.init` initializes app startup state (the baseline `_container`/`_store`, or `_startup` with the persistence recovery changes). Compile the declarations present in the checked-out branch under the Xcode 27 compiler and investigate actual diagnostics before changing their initialization semantics. Existing Swift Testing suites cover habit logic, storage, notification trigger construction and color blending; they do not exercise SwiftUI state lifetime or presentation.
 
 Complete this matrix on iOS 27 and, where available, iOS 26. Record Xcode build, simulator/runtime version, device, results and relevant screenshots. Passing the script alone does not establish these behaviors.
 
 | Area / state | Regression check |
 | --- | --- |
-| App `_container`, `_store` | Cold launch with existing habits; verify records remain after background/foreground and relaunch. Confirm test startup uses the in-memory container and existing suites execute. |
+| App container / startup state | Cold launch with existing habits; verify records remain after background/foreground and relaunch. Exercise any recovery state present in the branch. Confirm test startup uses the in-memory container and existing suites execute. |
 | List `showingEditor` | Open Add Habit from empty and populated lists; cancel, reopen, then save. The sheet must dismiss correctly and the list must update. |
 | Detail `showingEditor` | Open a habit, edit, cancel and reopen; save an edit and verify detail and list update. |
 | Editor `_viewModel` | Type a name/emoji; change color, habit kind, weekday schedule and reminders. Trigger view refresh and ensure unsaved edits remain. Cancel must preserve the original habit; save must persist the edited values. |
+| Sheet and popover controls | Check native sheet dismissal controls and popover presentation after rebuilding with SDK 27 (release note 167448274). Verify placement, keyboard interaction, VoiceOver and that Cancel/Save remain reachable. No source override for native presentation controls is currently applied. |
 | Scenes and launch screen | Cold launch Debug and Release; confirm a launch screen and usable initial scene. Background/foreground and reconnect the scene without losing navigation or data. |
 | SDK/runtime coexistence | Repeat critical launch, edit and persistence flows on iOS 26 when supported by the host Xcode installation. |
 
 This validation is prepared for macOS execution. Linux script/stub checks provide no evidence that Yaht builds or runs with Xcode 27.
+
+## Reproduce validator tests on Linux or macOS
+
+```sh
+python3 -m unittest discover -s scripts/tests -p 'test_validate_ios27.py' -v
+```
+
+These tests create temporary fake `xcodebuild` and `xcrun` executables. They cover Linux rejection, minimum toolchain/runtime versions, SDK 27.1 flag gating in both configurations, launch-screen variants, missing plist requirements, preserved tool failure statuses, zero/all-skipped/failed tests, and unknown xcresult schemas. They exercise the validator's command handling and leave the repository unchanged; they do not execute app tests or simulate actual SDK compatibility.
