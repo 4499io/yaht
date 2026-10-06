@@ -86,9 +86,11 @@ struct RemindersSection: View {
     @Bindable var viewModel: HabitEditViewModel
 
     var body: some View {
-        Section("Reminders") {
+        Section {
             ForEach($viewModel.reminders) { $reminder in
-                ReminderRow(reminder: $reminder)
+                ReminderRow(reminder: $reminder) {
+                    viewModel.removeReminder(id: reminder.id)
+                }
             }
             .onDelete { viewModel.removeReminders(at: $0) }
 
@@ -98,17 +100,28 @@ struct RemindersSection: View {
                 Label("Add reminder", systemImage: "plus.circle.fill")
             }
             .accessibilityIdentifier("habit-edit-add-reminder")
+        } header: {
+            Text("Reminders")
+        } footer: {
+            if !viewModel.reminders.isEmpty {
+                Text("Remove a reminder with its bin button or by swiping it left.")
+            }
         }
     }
 }
 
 /// A single editable reminder draft row.
+///
+/// Days use a menu rather than a full-width segmented control: a segmented
+/// control claims horizontal drags, which blocked swipe-to-delete on the row.
+/// The visible remove button keeps deletion discoverable either way.
 private struct ReminderRow: View {
     @Binding var reminder: ReminderDraft
+    let onRemove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
                 DatePicker(
                     "Time",
                     selection: $reminder.time,
@@ -117,11 +130,22 @@ private struct ReminderRow: View {
                 .labelsHidden()
                 .accessibilityIdentifier("habit-edit-reminder-time")
 
-                Spacer()
+                Spacer(minLength: 0)
 
                 Toggle("Enabled", isOn: $reminder.isEnabled)
                     .labelsHidden()
                     .accessibilityIdentifier("habit-edit-reminder-enabled")
+
+                // Borderless: in a Form row, default-styled buttons make the
+                // whole row their tap target.
+                Button(role: .destructive, action: onRemove) {
+                    Image(systemName: "trash")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Remove reminder")
+                .accessibilityIdentifier("habit-edit-reminder-remove")
             }
 
             Picker("Days", selection: $reminder.scope) {
@@ -129,7 +153,7 @@ private struct ReminderRow: View {
                 Text("Weekdays").tag(ReminderScope.weekdaysOnly)
                 Text("Weekends").tag(ReminderScope.weekendsOnly)
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
             .accessibilityIdentifier("habit-edit-reminder-scope")
         }
         .padding(.vertical, 4)

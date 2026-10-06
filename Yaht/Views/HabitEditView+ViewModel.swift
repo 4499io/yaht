@@ -135,6 +135,10 @@ final class HabitEditViewModel {
         reminders.remove(atOffsets: offsets)
     }
 
+    func removeReminder(id: ReminderDraft.ID) {
+        reminders.removeAll { $0.id == id }
+    }
+
     // MARK: - Commit
 
     /// Build (or update) the ``Habit`` from the current fields and persist it.
