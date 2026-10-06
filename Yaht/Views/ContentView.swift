@@ -28,6 +28,8 @@ struct ContentView: View {
             HabitListView()
         }
         .phoneWidthConstrained()
+        .background(Theme.background.ignoresSafeArea())
+        .tint(Theme.tint)
         .task(id: key) {
             guard key.isActive else { return }
             _ = await NotificationScheduler.shared.requestAuthorization()

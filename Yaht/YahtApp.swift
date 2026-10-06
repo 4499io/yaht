@@ -51,6 +51,8 @@ struct YahtApp: App {
                 }
                 .accessibilityIdentifier("store-startup-error")
                 .phoneWidthConstrained()
+                .background(Theme.background.ignoresSafeArea())
+                .tint(Theme.tint)
             }
         }
     }
@@ -67,7 +69,10 @@ private extension YahtApp {
             let container = try runningTests
                 ? PersistentStoreLoader.makeTestContainer()
                 : PersistentStoreLoader.makePersistentContainer()
-            return .ready(container, runningTests ? nil : HabitStore(modelContext: container.mainContext))
+            guard !runningTests else { return .ready(container, nil) }
+            let store = HabitStore(modelContext: container.mainContext)
+            store.migrateLegacyColors()
+            return .ready(container, store)
         } catch {
             let logger = Logger(subsystem: "io.yaht.Yaht", category: "persistence")
             // Keep model/error details private; the UI never exposes database paths.

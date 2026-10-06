@@ -77,12 +77,14 @@ final class HabitEditViewModel {
 
     init(habit: Habit?) {
         existingHabit = habit
-        let fallbackHex = Cyberdream.habitPaletteHex.first ?? "5FB8C4"
+        let fallbackHex = Theme.defaultHabitHex
 
         if let habit {
             name = habit.name
             emoji = habit.emoji
-            colorHex = habit.colorHex.isEmpty ? fallbackHex : habit.colorHex
+            colorHex = habit.colorHex.isEmpty
+                ? fallbackHex
+                : (Theme.migratedHex(for: habit.colorHex) ?? habit.colorHex)
             kind = habit.habitKind
             dailyTarget = max(1, habit.dailyTarget)
             unit = habit.unit ?? ""

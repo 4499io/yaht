@@ -76,6 +76,28 @@ final class HabitStore: HabitStoreProtocol {
         persist()
     }
 
+    /// Moves habits still using the pre-Gruvbox palette to the matching Gruvbox
+    /// color, archived ones included. Returns how many habits changed.
+    @discardableResult
+    func migrateLegacyColors() -> Int {
+        let habits: [Habit]
+        do {
+            habits = try modelContext.fetch(FetchDescriptor<Habit>())
+        } catch {
+            assertionFailure("migrateLegacyColors fetch failed: \(error)")
+            return 0
+        }
+        var changed = 0
+        for habit in habits {
+            if let replacement = Theme.migratedHex(for: habit.colorHex) {
+                habit.colorHex = replacement
+                changed += 1
+            }
+        }
+        if changed > 0 { persist() }
+        return changed
+    }
+
     func reorder(_ habits: [Habit]) {
         for (index, habit) in habits.enumerated() {
             habit.sortOrder = index
