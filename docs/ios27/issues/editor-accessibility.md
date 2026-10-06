@@ -19,4 +19,4 @@ color choices meaningfully and narrow layouts have small touch targets.
 - Verify selection, VoiceOver, and largest Dynamic Type on a narrow iPhone.
 
 Implementation branch: `fix/habit-color-accessibility`.
-Remote issue: not filed; API access is blocked.
+Remote issue: https://github.com/4499io/yaht/issues/2

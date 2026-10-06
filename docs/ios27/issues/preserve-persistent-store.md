@@ -28,4 +28,4 @@ allows writes to an in-memory store that disappear on the next launch.
   CloudKit initialization failure and an OS upgrade.
 
 Implementation branch: `fix/preserve-persistent-store`.
-Remote issue: not filed; API access is blocked.
+Remote issue: https://github.com/4499io/yaht/issues/1
