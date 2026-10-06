@@ -51,7 +51,8 @@ extension NotificationCenterClient {
         repeat {
             let pending = await pendingRequests()
             if pending.allSatisfy({ !identifiers.contains($0.identifier) }) { return true }
-            await Task.yield()
+            // Pace the polls; a cancelled caller still finishes the barrier.
+            do { try await Task.sleep(for: .milliseconds(50)) } catch { await Task.yield() }
         } while clock.now < deadline
         return false
     }

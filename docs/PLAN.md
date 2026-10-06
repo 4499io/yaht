@@ -1,6 +1,7 @@
 # Yaht — Build Plan (small specs, iterate)
 
-Repo: `gitlab.com/4499.io/yaht/xcode` · iPhone-only · always-dark Cyberdream Liquid Glass ·
+Repo: `github.com/4499io/yaht` (moved from GitLab; steps below that mention GitLab, MRs or
+`.gitlab-ci.yml` are history, CI is now `.github/workflows/`) · iPhone-only · always-dark Cyberdream Liquid Glass ·
 SwiftData + CloudKit (no custom sync). Companion: [`LESSONS.md`](./LESSONS.md).
 
 Philosophy: each step is a **small spec** merged as its own MR, reviewed before the next. Stop points

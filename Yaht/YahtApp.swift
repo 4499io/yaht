@@ -31,11 +31,9 @@ struct YahtApp: App {
                     if isRunningTests {
                         Color.clear
                     } else if let store {
+                        // ContentView requests notification authorization before reconciling.
                         ContentView()
                             .environment(store)
-                            .task {
-                                _ = await NotificationScheduler.shared.requestAuthorization()
-                            }
                     }
                 }
                 .modelContainer(container)
