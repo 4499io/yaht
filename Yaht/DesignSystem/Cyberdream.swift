@@ -26,18 +26,21 @@ enum Cyberdream {
 
     /// ~10 desaturated neon hues used to color individual habits.
     /// Order: cyan, teal, green, blue, purple, pink, red, orange, yellow, indigo.
-    static let habitPaletteHex: [String] = [
-        "5FB8C4", // cyan
-        "4FB89C", // teal
-        "6FB86A", // green
-        "5B8FD6", // blue
-        "9B7BD1", // purple
-        "CE7BB0", // pink
-        "D06D6D", // red
-        "D9925A", // orange
-        "D6C066", // yellow
-        "7B7BD1", // indigo
+    static let habitColors: [(hex: String, name: LocalizedStringKey)] = [
+        ("5FB8C4", "Cyan"),
+        ("4FB89C", "Teal"),
+        ("6FB86A", "Green"),
+        ("5B8FD6", "Blue"),
+        ("9B7BD1", "Purple"),
+        ("CE7BB0", "Pink"),
+        ("D06D6D", "Red"),
+        ("D9925A", "Orange"),
+        ("D6C066", "Yellow"),
+        ("7B7BD1", "Indigo"),
     ]
+
+    /// Stored color tokens, in the same order as their accessible names.
+    static let habitPaletteHex: [String] = habitColors.map(\.hex)
 
     /// ``habitPaletteHex`` mapped through ``Color/init(hex:)``.
     /// Any hue that fails to parse falls back to the accent color so indices

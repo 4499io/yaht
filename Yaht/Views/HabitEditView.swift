@@ -77,7 +77,8 @@ private struct BasicsSection: View {
     private var colorPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(Cyberdream.habitPaletteHex, id: \.self) { hex in
+                ForEach(Cyberdream.habitColors, id: \.hex) { color in
+                    let hex = color.hex
                     let isSelected = hex.caseInsensitiveCompare(viewModel.colorHex) == .orderedSame
                     Button {
                         viewModel.colorHex = hex
@@ -89,9 +90,12 @@ private struct BasicsSection: View {
                                 Circle()
                                     .strokeBorder(Cyberdream.textPrimary, lineWidth: isSelected ? 3 : 0)
                             }
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("habit-edit-color-\(hex)")
+                    .accessibilityLabel(Text(color.name))
                     .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 }
             }
