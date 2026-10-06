@@ -51,6 +51,7 @@ struct YahtApp: App {
                     .accessibilityIdentifier("store-startup-retry")
                 }
                 .accessibilityIdentifier("store-startup-error")
+                .phoneWidthConstrained()
             }
         }
     }
