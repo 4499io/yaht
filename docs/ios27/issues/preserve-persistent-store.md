@@ -29,3 +29,9 @@ allows writes to an in-memory store that disappear on the next launch.
 
 Implementation branch: `fix/preserve-persistent-store`.
 Remote issue: https://github.com/4499io/yaht/issues/1
+
+## Implementation progress
+
+Implementation prepared locally on `fix/preserve-persistent-store` (latest `738f33a`): preserved original store, explicit local fallback, blocking Retry UI, five added regression cases including real local SQLite roundtrip. Swift tests and CloudKit-backed device behavior remain unrun. Recovery presentation also uses the adaptive layout constraint.
+
+Branches remain local: upstream push permission is absent, and GitHub integration denied fork creation. Issue remains open pending acceptance checks.

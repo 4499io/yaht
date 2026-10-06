@@ -34,3 +34,9 @@ Implementation branch: `feat/ios27-reserved-region-layout`.
 Apple-platform compilation and runtime checks cannot run in this Linux machine.
 
 Remote issue: https://github.com/4499io/yaht/issues/5
+
+## Implementation progress
+
+Implementation prepared locally on `feat/ios27-reserved-region-layout` (`dbda231`, `043a2d4`): free-rectangle selection, active division query in physical coordinates, baseline SDK fallback, and eleven geometry regression cases. Swift tests, SDK compilation and hardware geometry remain unrun. Compile only new symbols with `YAHT_IOS27_1_SDK` under SDK27.1+, plus runtime availability checks.
+
+Branches remain local: upstream push permission is absent, and GitHub integration denied fork creation. Issue remains open pending acceptance checks.

@@ -30,21 +30,27 @@ image must be verified before replacing it.
 
 | Issue | Priority | Work | Branch | Status |
 | --- | --- | --- | --- | --- |
-| [#1](https://github.com/4499io/yaht/issues/1) | P1 | Preserve database on startup failure | `fix/preserve-persistent-store` | `372b200`, `57860c8`; five tests added, Apple validation pending |
+| [#1](https://github.com/4499io/yaht/issues/1) | P1 | Preserve database on startup failure | `fix/preserve-persistent-store` | `372b200`, `57860c8`, `738f33a`; five tests added, Apple validation pending |
 | [#2](https://github.com/4499io/yaht/issues/2) | P2 | Label and enlarge editor controls | `fix/habit-color-accessibility` | `6bc58ee`, `0e9c3ec`; Apple validation pending |
 | [#3](https://github.com/4499io/yaht/issues/3) | P2 | Reconcile/serialize device reminders | `fix/reconcile-reminders` | Implementation in progress |
-| [#4](https://github.com/4499io/yaht/issues/4) | P1 | Validate SDK 27 builds and generated metadata | `test/ios27-sdk-readiness` | Implementation in progress |
-| [#5](https://github.com/4499io/yaht/issues/5) | P1 | Avoid active hardware divisions on 27.1 | `feat/ios27-reserved-region-layout` | Implementation in progress |
+| [#4](https://github.com/4499io/yaht/issues/4) | P1 | Validate SDK 27 builds and generated metadata | `test/ios27-sdk-readiness` | `0a043a0`, `668ff0d`, `c3be522`; reproducible Linux validator tests pass, actual Xcode validation pending |
+| [#5](https://github.com/4499io/yaht/issues/5) | P1 | Avoid active hardware divisions on 27.1 | `feat/ios27-reserved-region-layout` | `dbda231`, `043a2d4`; 11 geometry tests added, Apple validation pending |
 
 Issues #1–3 address existing defects. Issues #4–5 cover confirmed new-SDK
 requirements and adaptive API adoption. Worktrees are under `/workspace/yaht-worktrees/`;
 the original checkout remains on its existing branch.
 
-An atomic push of all three branches was attempted and rejected with HTTP
-403: the current GitHub identity lacks write permission to `4499io/yaht`.
-All commits and worktrees remain local. This repository authorization failure
-is separate from the network policy blocking Apple research and the GitHub
-API. Restore write access before attempting to publish these branches.
+Upstream branch publishing remains blocked: the current GitHub identity has
+read/issue access but no repository push permission. Fork creation was also
+attempted and rejected with `Resource not accessible by integration` (HTTP
+403). All implementation commits remain local; restore repository write access
+or supported fork permission before publishing. Apple research and issue API
+access now work; the former network blocker is resolved.
+
+An integration worktree at `/workspace/yaht-worktrees/ios27-integration`, branch
+`integration/ios27-upgrade`, combines the independent fixes for Apple-platform
+validation. The original checkout remains unchanged. No remote PR, merge, or
+deployment has been created.
 
 ## Required validation matrix
 
