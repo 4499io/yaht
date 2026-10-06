@@ -15,8 +15,35 @@ extension View {
     /// reach them. On iPhone (screen narrower than `maxWidth`) this is a no-op.
     ///
     /// Ref: 99issues #418 · Apple TN3192 (UIRequiresFullScreen deprecation).
+    /// iOS 27.1 uses one usable rectangle outside active hardware divisions.
+    /// Use only on full-height presentation roots, not intrinsically sized rows.
+    @ViewBuilder
     func phoneWidthConstrained(_ maxWidth: CGFloat = 440) -> some View {
+        #if YAHT_IOS27_1_SDK
+        if #available(iOS 27.1, *) {
+            GeometryReader { geometry in
+                let bounds = CGRect(origin: .zero, size: geometry.size)
+                let divisions = geometry.reservedRegions(kind: .division, layoutDirectionBehavior: .fixed)
+                    .filter(\.isActive)
+                    .map(\.frame)
+                let usable = UsableContentRegion.largest(in: bounds, excluding: divisions)
+                if usable == bounds {
+                    // Keep the current layout when reservations do not overlap.
+                    frame(maxWidth: maxWidth)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    frame(width: min(maxWidth, usable.width), height: usable.height)
+                        .clipped()
+                        .position(x: usable.midX, y: usable.midY)
+                }
+            }
+        } else {
+            frame(maxWidth: maxWidth)
+                .frame(maxWidth: .infinity)
+        }
+        #else
         frame(maxWidth: maxWidth)
             .frame(maxWidth: .infinity)
+        #endif
     }
 }
