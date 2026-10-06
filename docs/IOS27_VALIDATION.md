@@ -41,7 +41,7 @@ This validation is prepared for macOS execution. Linux script/stub checks provid
 ## Reproduce validator tests on Linux or macOS
 
 ```sh
-python3 -m unittest discover -s scripts/tests -p 'test_validate_ios27.py' -v
+python3 -B -m unittest discover -s scripts/tests -p 'test_validate_ios27.py' -v
 ```
 
 These tests create temporary fake `xcodebuild` and `xcrun` executables. They cover Linux rejection, minimum toolchain/runtime versions, SDK 27.1 flag gating in both configurations, launch-screen variants, missing plist requirements, preserved tool failure statuses, zero/all-skipped/failed tests, and unknown xcresult schemas. They exercise the validator's command handling and leave the repository unchanged; they do not execute app tests or simulate actual SDK compatibility.

@@ -12,11 +12,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-sys.dont_write_bytecode = True
 SCRIPT = Path(__file__).resolve().parents[1] / 'validate_ios27.py'
 spec = importlib.util.spec_from_file_location('validation', SCRIPT)
 module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
+with patch.object(sys, 'dont_write_bytecode', True):
+    spec.loader.exec_module(module)
 
 STUB = '''#!/usr/bin/env python3
 import json, os, pathlib, plistlib, sys
