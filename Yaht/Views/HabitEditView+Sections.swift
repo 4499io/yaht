@@ -11,13 +11,14 @@ struct ScheduleSection: View {
     ]
 
     var body: some View {
-        Section("Schedule") {
-            Picker("Repeats", selection: $viewModel.scheduleKind) {
-                Text("Every day").tag(ScheduleKind.daily)
-                Text("Specific days").tag(ScheduleKind.specificWeekdays)
-                Text("Every N days").tag(ScheduleKind.everyNDays)
-                Text("Times per week").tag(ScheduleKind.timesPerWeek)
+        Section("When") {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                chip(.daily, "Every day")
+                chip(.specificWeekdays, "Some days")
+                chip(.timesPerWeek, "Times a week")
+                chip(.everyNDays, "Every few days")
             }
+            .padding(.vertical, 4)
             .accessibilityIdentifier("habit-edit-schedule-kind")
 
             switch viewModel.scheduleKind {
@@ -41,6 +42,28 @@ struct ScheduleSection: View {
                 .accessibilityIdentifier("habit-edit-weekly-target")
             }
         }
+        .listRowBackground(Theme.surface)
+    }
+
+    private func chip(_ kind: ScheduleKind, _ title: LocalizedStringKey) -> some View {
+        let isSelected = viewModel.scheduleKind == kind
+        return Button {
+            viewModel.scheduleKind = kind
+        } label: {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundStyle(isSelected ? Theme.onAccent : Theme.textPrimary)
+                .background(
+                    isSelected ? viewModel.selectedColor : Theme.raised,
+                    in: Capsule()
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     /// Seven equal-width 44-point targets fill the row when they fit; at
@@ -66,13 +89,13 @@ struct ScheduleSection: View {
                     Text(day.label)
                         .font(.caption.weight(.semibold))
                         .frame(minWidth: 44, maxWidth: fillsWidth ? .infinity : nil, minHeight: 44)
-                        .foregroundStyle(selected ? Cyberdream.textPrimary : Cyberdream.textSecondary)
+                        .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
                         .background(
-                            selected ? AnyShapeStyle(viewModel.selectedColor) : AnyShapeStyle(.ultraThinMaterial),
+                            selected ? viewModel.selectedColor : Theme.raised,
                             in: RoundedRectangle(cornerRadius: 8, style: .continuous)
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .accessibilityIdentifier("habit-edit-weekday-\(day.weekday)")
                 .accessibilityLabel(Text(Calendar.current.weekdaySymbols[day.weekday - 1]))
                 .accessibilityAddTraits(selected ? [.isSelected] : [])
@@ -107,6 +130,7 @@ struct RemindersSection: View {
                 Text("Remove a reminder with its bin button or by swiping it left.")
             }
         }
+        .listRowBackground(Theme.surface)
     }
 }
 
@@ -140,6 +164,7 @@ private struct ReminderRow: View {
                 // whole row their tap target.
                 Button(role: .destructive, action: onRemove) {
                     Image(systemName: "trash")
+                        .foregroundStyle(Theme.danger)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }

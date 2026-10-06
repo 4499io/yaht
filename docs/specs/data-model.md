@@ -27,7 +27,7 @@ SwiftData + CloudKit mirroring imposes hard rules — violating them crashes con
 | `id` | `UUID` | `UUID()` | app-level identity (not a unique constraint) |
 | `name` | `String` | `""` | |
 | `emoji` | `String` | `""` | habit identifier glyph |
-| `colorHex` | `String` | `""` | Cyberdream palette hue; blends into global activity widget |
+| `colorHex` | `String` | `""` | Habit palette hue (Gruvbox, `Theme.habitColors`); blends into the global activity grid |
 | `createdAt` | `Date` | `Date()` | |
 | `isArchived` | `Bool` | `false` | soft-delete / hide without losing history |
 | `sortOrder` | `Int` | `0` | manual ordering in the list |
