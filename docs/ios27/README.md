@@ -39,7 +39,7 @@ without an explicit migration plan and existing-store tests.
 
 | Local draft | Priority | Finding | Branch | Status |
 | --- | --- | --- | --- | --- |
-| [Preserve persistence](issues/preserve-persistent-store.md) | P1 | Any CloudKit startup error moves the existing SQLite store aside; local fallback is not explicitly local; final fallback silently accepts volatile writes | `fix/preserve-persistent-store` | Committed as `372b200`; Apple-platform validation pending |
+| [Preserve persistence](issues/preserve-persistent-store.md) | P1 | Any CloudKit startup error moves the existing SQLite store aside; local fallback is not explicitly local; final fallback silently accepts volatile writes | `fix/preserve-persistent-store` | Committed as `372b200` and `57860c8`; five new tests, Apple-platform validation pending |
 | [Editor accessibility](issues/editor-accessibility.md) | P2 | Color-only buttons lack spoken names and editor controls have small targets | `fix/habit-color-accessibility` | Committed as `6bc58ee` and `0e9c3ec`; Apple-platform validation pending |
 | [Notification reconciliation](issues/notification-reconciliation.md) | P2 | Bulk reminder reconciliation has no callers; scheduling operations can interleave at awaits | Not started | Needs focused implementation and regression tests |
 | [Verify iOS 27 compatibility](issues/verify-ios27-compatibility.md) | P1 | Official release research and Apple-platform validation remain unavailable | `chore/ios27-migration-plan` | Blocked on access and macOS tooling |
