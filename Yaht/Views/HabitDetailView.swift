@@ -16,6 +16,7 @@ struct HabitDetailView: View {
     private let habit: Habit
     @State private var showingEditor = false
     @State private var pendingRemoval: HabitRemoval?
+    @State private var choosingPauseEnd = false
 
     init(habit: Habit) {
         self.habit = habit
@@ -24,21 +25,23 @@ struct HabitDetailView: View {
     var body: some View {
         let today = Date()
         let stats = HabitStats(habit: habit, today: today)
-        let week = habit.weekProgress(containing: today)
+        let week = habit.weekGoal(containing: today)
+        let streak = habit.weeklyStreak(today: today)
         ScrollView {
             VStack(spacing: 18) {
                 header
                 HStack(spacing: 10) {
-                    streakCard(stats)
+                    streakCard(streak)
                     weekCard(week)
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 CheckInButton(habit: habit, day: today)
+                PauseControl(habit: habit, today: today, choosingEnd: $choosingPauseEnd)
                 Card(padding: 16) {
                     MonthCalendarView(habit: habit)
                 }
                 HStack(spacing: 10) {
-                    numberTile("\(stats.bestStreak)", caption: "best streak, days")
+                    numberTile("\(streak.best)", caption: "best streak, weeks")
                     numberTile("\(stats.last30Percent)%", caption: "last 30 days")
                     numberTile("\(stats.totalCompleted)", caption: "check-ins")
                 }
@@ -85,17 +88,17 @@ struct HabitDetailView: View {
         .padding(.top, 4)
     }
 
-    private func streakCard(_ stats: HabitStats) -> some View {
+    private func streakCard(_ streak: WeeklyStreak) -> some View {
         Card(cornerRadius: 22, padding: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Current streak")
+                Text("Streak")
                     .font(.footnote)
                     .foregroundStyle(Theme.textTertiary)
-                Text("\(stats.currentStreak)")
+                Text("\(streak.current)")
                     .font(.rounded(44, weight: .heavy))
                     .monospacedDigit()
                     .foregroundStyle(habit.color)
-                Text(stats.currentStreak == 1 ? "day in a row" : "days in a row")
+                Text(streak.current == 1 ? "week in a row" : "weeks in a row")
                     .font(.footnote)
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -104,12 +107,12 @@ struct HabitDetailView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func weekCard(_ week: WeekProgress) -> some View {
+    private func weekCard(_ week: WeekGoal) -> some View {
         Card(cornerRadius: 22, padding: 16) {
             HStack(spacing: 12) {
                 ZStack {
                     ProgressRing(progress: week.fraction, color: habit.color, lineWidth: 8)
-                    Text("\(week.completed)/\(week.target)")
+                    Text(week.isNeutral ? "–" : "\(week.completed)/\(week.required)")
                         .font(.rounded(16, weight: .heavy))
                         .monospacedDigit()
                         .foregroundStyle(Theme.textPrimary)
@@ -119,14 +122,25 @@ struct HabitDetailView: View {
                     Text("This week")
                         .font(.footnote)
                         .foregroundStyle(Theme.textTertiary)
-                    Text(week.isMet ? "Target met" : "\(max(week.target - week.completed, 0)) more to go")
+                    Text(weekStatus(week))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textPrimary)
+                    if week.restDays > 0, !week.isMet {
+                        Text("1 rest day allowed")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textTertiary)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private func weekStatus(_ week: WeekGoal) -> String {
+        if week.isNeutral { return String(localized: "Nothing due") }
+        if week.isMet { return String(localized: "Goal met") }
+        return String(localized: "\(week.required - week.completed) more to go")
     }
 
     private func numberTile(_ value: String, caption: LocalizedStringKey) -> some View {
@@ -223,4 +237,107 @@ private struct CheckInButton: View {
         HabitDetailView(habit: Habit(name: "Read", emoji: "📚", colorHex: Theme.habitPaletteHex[2]))
     }
     .preferredColorScheme(.dark)
+}
+
+/// Pause a habit for illness or a holiday, or resume it. Paused days are not
+/// due, keep the streak intact and hold back reminders. A pause can also cover
+/// last week after the fact, for when the break was not planned.
+private struct PauseControl: View {
+    @Environment(HabitStore.self) private var store
+    let habit: Habit
+    let today: Date
+    @Binding var choosingEnd: Bool
+    @State private var endDate = Date()
+
+    var body: some View {
+        let calendar = Calendar.current
+        if let pause = habit.pause(covering: today) {
+            HStack(spacing: 12) {
+                Image(systemName: "pause.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(habit.color)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Paused until \(pause.end, format: .dateTime.weekday(.wide).day().month())")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("Your streak is safe and reminders are off.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                Spacer(minLength: 8)
+                Button("Resume") { store.resume(habit, today: today) }
+                    .font(.subheadline.weight(.semibold))
+                    .buttonStyle(.bordered)
+                    .tint(habit.color)
+                    .accessibilityIdentifier("habit-detail-resume")
+            }
+            .padding(14)
+            .background(habit.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        } else {
+            Menu {
+                Button("Today") { pause(days: 1) }
+                Button("1 week") { pause(days: 7) }
+                Button("2 weeks") { pause(days: 14) }
+                Button("Until a date…") {
+                    endDate = calendar.date(byAdding: .day, value: 7, to: today) ?? today
+                    choosingEnd = true
+                }
+                if let lastWeek = Self.lastWeek(before: today, calendar: calendar), !habit.isPaused(on: lastWeek.start) {
+                    Divider()
+                    Button("Last week, I was away") {
+                        store.pause(habit, from: lastWeek.start, through: lastWeek.end)
+                    }
+                }
+            } label: {
+                Label("Pause habit", systemImage: "pause.circle")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .foregroundStyle(Theme.textSecondary)
+            .accessibilityIdentifier("habit-detail-pause")
+            .sheet(isPresented: $choosingEnd) {
+                NavigationStack {
+                    DatePicker(
+                        "Paused until",
+                        selection: $endDate,
+                        in: today...(calendar.date(byAdding: .day, value: HabitStore.maxPauseDays - 1, to: today) ?? today),
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.graphical)
+                    .tint(habit.color)
+                    .padding()
+                    .navigationTitle("Pause until")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { choosingEnd = false }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Pause") {
+                                store.pause(habit, from: today, through: endDate)
+                                choosingEnd = false
+                            }
+                        }
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
+        }
+    }
+
+    private func pause(days: Int) {
+        let end = Calendar.current.date(byAdding: .day, value: days - 1, to: today) ?? today
+        store.pause(habit, from: today, through: end)
+    }
+
+    /// First and last day of the week before the one containing `date`.
+    static func lastWeek(before date: Date, calendar: Calendar) -> (start: Date, end: Date)? {
+        guard
+            let thisWeek = calendar.dateInterval(of: .weekOfYear, for: date),
+            let start = calendar.date(byAdding: .weekOfYear, value: -1, to: thisWeek.start),
+            let end = calendar.date(byAdding: .day, value: -1, to: thisWeek.start)
+        else { return nil }
+        return (start, end)
+    }
 }

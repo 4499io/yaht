@@ -7,7 +7,6 @@ import SwiftUI
 /// vivid while empty days still form a quiet lattice. Days outside the tracked
 /// range (before a habit existed, or in the future) render as a faint ghost.
 enum ActivityStyle {
-    static let cellSize: CGFloat = 13
     static let cellSpacing: CGFloat = 3
     static let cornerRadius: CGFloat = 3.5
 

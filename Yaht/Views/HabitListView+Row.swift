@@ -26,7 +26,10 @@ struct HabitRowView: View {
                                 .foregroundStyle(Theme.textTertiary)
                                 .lineLimit(1)
                         }
-                        LastSevenDays(habit: habit, day: day)
+                        HStack(spacing: 8) {
+                            LastSevenDays(habit: habit, day: day)
+                            StreakBadge(weeks: habit.weeklyStreak(today: day).current, color: habit.color)
+                        }
                     }
                     Spacer(minLength: 0)
                 }
@@ -49,13 +52,37 @@ struct HabitRowView: View {
     }
 
     private var note: String {
+        if let pause = habit.pause(covering: day) {
+            return String(localized: "Paused until \(pause.end.formatted(.dateTime.day().month()))")
+        }
         if habit.schedule == .timesPerWeek {
-            let week = habit.weekProgress(containing: day)
-            return String(localized: "\(week.completed) of \(week.target) this week")
+            let week = habit.weekGoal(containing: day)
+            return String(localized: "\(week.completed) of \(week.required) this week")
         }
         if let goal = habit.goalSummary { return goal }
-        if !habit.isDue(on: day) { return String(localized: "Not due today") }
+        if !habit.isDue(on: day) { return String(localized: "Not due") }
         return habit.scheduleSummary
+    }
+}
+
+/// Flame and week count, shown once a habit has a weekly streak.
+private struct StreakBadge: View {
+    let weeks: Int
+    let color: Color
+
+    var body: some View {
+        if weeks > 0 {
+            HStack(spacing: 2) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text("\(weeks)w")
+                    .font(.rounded(12, weight: .heavy))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(color)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(weeks == 1 ? Text("1 week in a row") : Text("\(weeks) weeks in a row"))
+        }
     }
 }
 

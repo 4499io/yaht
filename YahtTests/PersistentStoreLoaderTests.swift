@@ -102,7 +102,6 @@ struct PersistentStoreLoaderTests {
         let configuration = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)
         return try ModelContainer(
             for: schema,
-            migrationPlan: AppMigrationPlan.self,
             configurations: [configuration]
         )
     }

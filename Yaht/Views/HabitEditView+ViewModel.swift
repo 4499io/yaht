@@ -133,10 +133,6 @@ final class HabitEditViewModel {
         reminders.append(ReminderDraft(time: ReminderDraft.date(hour: 9, minute: 0)))
     }
 
-    func removeReminders(at offsets: IndexSet) {
-        reminders.remove(atOffsets: offsets)
-    }
-
     func removeReminder(id: ReminderDraft.ID) {
         reminders.removeAll { $0.id == id }
     }

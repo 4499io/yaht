@@ -31,6 +31,9 @@ final class Habit {
     @Relationship(deleteRule: .cascade, inverse: \HabitLog.habit)
     var logs: [HabitLog]?
 
+    @Relationship(deleteRule: .cascade, inverse: \HabitPause.habit)
+    var pauses: [HabitPause]?
+
     init(
         id: UUID = UUID(),
         name: String = "",
@@ -48,7 +51,8 @@ final class Habit {
         weeklyTarget: Int = 0,
         soundName: String? = nil,
         reminders: [Reminder]? = nil,
-        logs: [HabitLog]? = nil
+        logs: [HabitLog]? = nil,
+        pauses: [HabitPause]? = nil
     ) {
         self.id = id
         self.name = name
@@ -67,6 +71,7 @@ final class Habit {
         self.soundName = soundName
         self.reminders = reminders
         self.logs = logs
+        self.pauses = pauses
     }
 
     /// Non-persisted view of `kind`. Falls back to `.binary` for bad data.

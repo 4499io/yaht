@@ -63,13 +63,10 @@ struct HabitEditView: View {
 
     private var deleteSection: some View {
         Section {
-            Button(role: .destructive) {
+            Button("Delete Habit", role: .destructive) {
                 confirmingDelete = true
-            } label: {
-                Label("Delete Habit", systemImage: "trash")
-                    .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
             }
+            .frame(maxWidth: .infinity)
             .foregroundStyle(Theme.danger)
             .accessibilityIdentifier("habit-edit-delete")
             .confirmationDialog(
@@ -83,8 +80,6 @@ struct HabitEditView: View {
             } message: {
                 Text("Its check-ins and reminders are removed on all your devices. This can’t be undone. Archiving hides it from Today but keeps its history.")
             }
-        } footer: {
-            Text("Archived habits leave Today but keep their history.")
         }
         .listRowBackground(Theme.surface)
     }
@@ -230,7 +225,7 @@ private struct KindSection: View {
 
 #Preview("New Habit") {
     let container = try! ModelContainer(
-        for: Habit.self, Reminder.self, HabitLog.self,
+        for: Habit.self, Reminder.self, HabitLog.self, HabitPause.self,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
     )
     return HabitEditView(habit: nil)

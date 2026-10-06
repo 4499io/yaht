@@ -115,7 +115,6 @@ struct RemindersSection: View {
                     viewModel.removeReminder(id: reminder.id)
                 }
             }
-            .onDelete { viewModel.removeReminders(at: $0) }
 
             Button {
                 viewModel.addReminder()
@@ -125,20 +124,12 @@ struct RemindersSection: View {
             .accessibilityIdentifier("habit-edit-add-reminder")
         } header: {
             Text("Reminders")
-        } footer: {
-            if !viewModel.reminders.isEmpty {
-                Text("Remove a reminder with its bin button or by swiping it left.")
-            }
         }
         .listRowBackground(Theme.surface)
     }
 }
 
-/// A single editable reminder draft row.
-///
-/// Days use a menu rather than a full-width segmented control: a segmented
-/// control claims horizontal drags, which blocked swipe-to-delete on the row.
-/// The visible remove button keeps deletion discoverable either way.
+/// A single editable reminder draft row; its bin button removes it.
 private struct ReminderRow: View {
     @Binding var reminder: ReminderDraft
     let onRemove: () -> Void

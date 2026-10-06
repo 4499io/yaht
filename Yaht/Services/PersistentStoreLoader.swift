@@ -51,7 +51,6 @@ enum PersistentStoreLoader {
             )
             return try ModelContainer(
                 for: schema,
-                migrationPlan: AppMigrationPlan.self,
                 configurations: [configuration]
             )
         }

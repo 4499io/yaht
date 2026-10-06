@@ -41,6 +41,7 @@ SwiftData + CloudKit mirroring imposes hard rules — violating them crashes con
 | `soundName` | `String?` | `nil` | custom notification tone; `nil` = default |
 | `reminders` | `[Reminder]?` | `nil` | to-many, inverse `Reminder.habit`, cascade delete |
 | `logs` | `[HabitLog]?` | `nil` | to-many, inverse `HabitLog.habit`, cascade delete |
+| `pauses` | `[HabitPause]?` | `nil` | to-many, inverse `HabitPause.habit`, cascade delete |
 
 ### `Reminder`  (per-habit notification time; drives Step 5 scheduling)
 | Property | Type | Default | Notes |
@@ -98,20 +99,32 @@ enum ReminderScope: String, Codable, CaseIterable {
 and `progress(on:) -> Double` (0…1; binary is 0 or 1, count is `dayCount / dailyTarget` clamped —
 drives partial grid fills). These live in a `Habit+Logic.swift` extension, unit-tested.
 
+### `HabitPause`  (days a habit is paused)
+| Property | Type | Default | Notes |
+|---|---|---|---|
+| `id` | `UUID` | `UUID()` | |
+| `start` | `Date` | `Date()` | local `startOfDay`, included |
+| `end` | `Date` | `Date()` | local `startOfDay`, included; at most 90 days after `start` |
+| `createdAt` | `Date` | `Date()` | |
+| `habit` | `Habit?` | `nil` | inverse |
+
+> Paused days are not due (`isDue` is false), so they neither extend nor break a weekly streak,
+> and the habit's reminders are not scheduled while it is paused today.
+
 ---
 
 ## Schema & migration (from day one — LESSONS §3)
 
 ```
 enum SchemaV1: VersionedSchema {
-    static var versionIdentifier = Schema.Version(1, 0, 0)
-    static var models: [any PersistentModel.Type] { [Habit.self, Reminder.self, HabitLog.self] }
-}
-enum AppMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [SchemaV1.self] }
-    static var stages: [MigrationStage] { [] }
+    static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
+    static var models: [any PersistentModel.Type] { [Habit.self, Reminder.self, HabitLog.self, HabitPause.self] }
 }
 ```
+The app is unreleased, so there is no migration plan: SwiftData adapts existing test installs to
+additive changes on its own. Keep changes additive (new optional properties, entities and
+relationships) so CloudKit can follow, deploy the CloudKit schema to production before release, and
+introduce versioned schemas with migration stages from the first App Store release on.
 `Models/AppSchema.swift`. `PersistentStoreLoader` opens the explicit store URL in Application
 Support with `cloudKitDatabase: .automatic`, then retries the same URL with `.none` if startup
 fails. Neither attempt renames or deletes the database or its sidecars. If both fail, `YahtApp`
