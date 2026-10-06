@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UserNotifications
+import OSLog
 
 @main
 struct YahtApp: App {
@@ -9,46 +10,51 @@ struct YahtApp: App {
     // target lightweight and deterministic (the host app must not crash).
     private let isRunningTests: Bool = YahtApp.detectTests()
 
-    @State private var container: ModelContainer
-    @State private var store: HabitStore?
+    private enum StartupState {
+        case ready(ModelContainer, HabitStore?)
+        case failed
+    }
+
+    @State private var startup: StartupState
 
     init() {
-        let runningTests = YahtApp.detectTests()
-        // Under tests, use a throwaway in-memory container purely to satisfy
-        // `.modelContainer(_:)` — never touch the on-disk store or services.
-        let container = runningTests
-            ? YahtApp.makeInMemoryContainer()
-            : YahtApp.makePersistentContainer()
-        _container = State(initialValue: container)
-        _store = State(initialValue: runningTests
-            ? nil
-            : HabitStore(modelContext: container.mainContext))
-
+        _startup = State(initialValue: YahtApp.loadStartup(runningTests: YahtApp.detectTests()))
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
     }
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if isRunningTests {
-                    Color.clear
-                } else if let store {
-                    ContentView()
-                        .environment(store)
-                        .task {
-                            // Fire-and-forget: ask for notification permission.
-                            _ = await NotificationScheduler.shared.requestAuthorization()
-                        }
-                } else {
-                    Color.clear
+            switch startup {
+            case let .ready(container, store):
+                Group {
+                    if isRunningTests {
+                        Color.clear
+                    } else if let store {
+                        ContentView()
+                            .environment(store)
+                            .task {
+                                _ = await NotificationScheduler.shared.requestAuthorization()
+                            }
+                    }
                 }
+                .modelContainer(container)
+            case .failed:
+                ContentUnavailableView {
+                    Label("Unable to Open Habits", systemImage: "externaldrive.badge.exclamationmark")
+                } description: {
+                    Text("Your saved data has been kept. Try opening it again. If the problem continues, contact support before changing or removing app data.")
+                } actions: {
+                    Button("Retry") {
+                        startup = YahtApp.loadStartup(runningTests: isRunningTests)
+                    }
+                    .buttonStyle(.glass)
+                    .accessibilityIdentifier("store-startup-retry")
+                }
+                .accessibilityIdentifier("store-startup-error")
             }
-            .modelContainer(container)
         }
     }
 }
-
-// MARK: - Container construction
 
 private extension YahtApp {
     static func detectTests() -> Bool {
@@ -56,70 +62,17 @@ private extension YahtApp {
         return env["XCTestBundlePath"] != nil || env["XCTestSessionIdentifier"] != nil
     }
 
-    /// URL of the on-disk SQLite store inside Application Support.
-    static func storeURL() -> URL {
-        let fileManager = FileManager.default
-        let base = (try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )) ?? fileManager.temporaryDirectory
-        return base.appendingPathComponent("Yaht.sqlite")
-    }
-
-    /// Builds the persistent container, mirroring to CloudKit when available and
-    /// degrading gracefully: CloudKit → move-aside retry → local-only → in-memory.
-    /// The local-only tier means a provisioning/iCloud issue costs sync, never data.
-    static func makePersistentContainer() -> ModelContainer {
-        let schema = Schema(versionedSchema: SchemaV1.self)
-        let url = storeURL()
-        // Primary: SwiftData ↔ CloudKit automatic mirroring (iCloud.io.4499.yaht).
-        let cloudConfig = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .automatic)
-        // Fallback: same on-disk store without CloudKit, for when iCloud/CloudKit
-        // is unavailable (missing entitlement, container, etc.) — keeps persistence.
-        let localConfig = ModelConfiguration(schema: schema, url: url)
-
-        func build(_ config: ModelConfiguration) throws -> ModelContainer {
-            try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
-        }
-
+    static func loadStartup(runningTests: Bool) -> StartupState {
         do {
-            return try build(cloudConfig)
+            let container = try runningTests
+                ? PersistentStoreLoader.makeTestContainer()
+                : PersistentStoreLoader.makePersistentContainer()
+            return .ready(container, runningTests ? nil : HabitStore(modelContext: container.mainContext))
         } catch {
-            // Likely a corrupt store: move it (and sidecars) aside and retry once.
-            moveStoreAside(url)
-            if let recovered = try? build(cloudConfig) { return recovered }
-            // CloudKit itself may be the problem — fall back to local persistence.
-            if let local = try? build(localConfig) { return local }
-            // Last resort: run entirely in memory this session.
-            return makeInMemoryContainer()
-        }
-    }
-
-    /// In-memory container used for tests and as the final fallback.
-    static func makeInMemoryContainer() -> ModelContainer {
-        let schema = Schema(versionedSchema: SchemaV1.self)
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        do {
-            return try ModelContainer(for: schema, configurations: [configuration])
-        } catch {
-            fatalError("Yaht: unable to create in-memory ModelContainer: \(error)")
-        }
-    }
-
-    /// Renames the store (and its -wal/-shm sidecars) aside so a fresh one can
-    /// be created. Suffix avoids Date() so it stays deterministic per launch.
-    static func moveStoreAside(_ url: URL) {
-        let fileManager = FileManager.default
-        let suffix = ".corrupt-\(Int(ProcessInfo.processInfo.systemUptime))"
-        let paths = [url.path, url.path + "-wal", url.path + "-shm"]
-        for path in paths where fileManager.fileExists(atPath: path) {
-            do {
-                try fileManager.moveItem(atPath: path, toPath: path + suffix)
-            } catch {
-                // Best-effort recovery; ignore individual move failures.
-            }
+            let logger = Logger(subsystem: "io.yaht.Yaht", category: "persistence")
+            // Keep model/error details private; the UI never exposes database paths.
+            logger.error("Persistent store startup failed: \(String(describing: error), privacy: .private)")
+            return .failed
         }
     }
 }
