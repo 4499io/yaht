@@ -48,6 +48,12 @@ These findings are existing defects or validation gaps, not claims about
 new iOS 27 requirements. Worktrees are under `/workspace/yaht-worktrees/`;
 the original checkout remains on its existing branch.
 
+An atomic push of all three branches was attempted and rejected with HTTP
+403: the current GitHub identity lacks write permission to `4499io/yaht`.
+All commits and worktrees remain local. This repository authorization failure
+is separate from the network policy blocking Apple research and the GitHub
+API. Restore write access before attempting to publish these branches.
+
 ## Required validation matrix
 
 Use a macOS machine with the appropriate Apple SDKs. This Linux environment
