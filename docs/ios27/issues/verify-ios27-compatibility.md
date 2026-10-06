@@ -1,28 +1,39 @@
-# Verify official iOS 27 changes and run the app compatibility matrix
+# Validate Yaht against the iOS 27 SDK and generated app metadata
 
 Priority: P1. Required before claiming iOS 27 compatibility.
 
-## Blockers
+## Confirmed requirements
 
-Requests to Apple's documentation and website fail at the HTTPS proxy with
-CONNECT 403. This does not establish whether iOS 27 notes are published.
-This environment runs Linux and has no Xcode or iOS simulator.
+Apple’s iOS 27 release notes confirm SDK 27 is bundled with Xcode 27;
+`@State` becomes a macro with initialization and source-compatibility caveats
+(105893279); apps built with SDK 27 need a launch-screen Info.plist key
+(168247372) and the scene lifecycle (141837548). Several control environment
+values reset at sheet/popover boundaries (167448274).
+
+Source: https://developer.apple.com/documentation/ios-ipados-release-notes/ios-ipados-27-release-notes
+Toolchain: https://developer.apple.com/documentation/xcode-release-notes/xcode-27-release-notes
+
+Yaht already uses SwiftUI App/WindowGroup, scene-manifest generation, and
+launch-screen generation in both configurations. Explicitly initialized state
+has explicit types and no competing declaration default. Those source audits
+do not prove SDK compilation or built metadata validity.
 
 ## Acceptance criteria
 
-- Restore access to `developer.apple.com` and `www.apple.com`, read official
-  release notes and Xcode notes, and record exact sources and SDK versions.
-- Map confirmed SwiftUI, SwiftData, CloudKit, UserNotifications, accessibility,
-  and SDK-linked behavior changes to affected app code.
-- File individual actionable issues for verified changes, including source
-  links and before/after behavior. Keep assumptions explicitly unverified.
-- Establish the iOS 26 baseline and run build, real unit tests, application
-  smoke checks, populated-store upgrade, sync, reminders, and accessibility
-  checks on iOS 27. Record actual test counts and outcomes.
-- Preserve the iOS 26 minimum target unless a verified requirement or product
-  decision warrants changing it.
-- Update CI only after the required runner/SDK/destination are confirmed.
+- Add a reusable macOS validation command using actual Xcode 27+ and SDK 27+.
+  Require a caller-selected simulator destination rather than guessed hardware
+  or runner image names.
+- Build Debug/Release and inspect generated Info.plist for one of
+  UILaunchStoryboardName, UILaunchStoryboards, UILaunchScreen, UILaunchScreens,
+  plus scene configuration.
+- Execute real tests with a fresh result bundle, preserve command failures,
+  confirm nonzero test counts, and record outcomes.
+- Validate editor draft lifetime under the State macro, sheet controls,
+  existing-store upgrades, sync, reminders, and accessibility on iOS 27.
+- Retain the iOS 26 minimum and report baseline/new SDK results separately.
+- Update CI only after the runner image and destinations are confirmed.
 
-Sources and detailed matrix: `docs/ios27/README.md`.
-Implementation branch: `chore/ios27-migration-plan`.
-Remote issue: not filed; API access is blocked.
+Implementation branch: `test/ios27-sdk-readiness`.
+This Linux environment cannot execute Apple-platform checks.
+
+Remote issue: https://github.com/4499io/yaht/issues/4

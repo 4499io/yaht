@@ -22,5 +22,5 @@ does not prevent operations from interleaving across those awaits.
   reminders, permission denied/granted, concurrent edits, and budget limits.
 - Verify actual scheduled requests and delivery on a supported Apple host.
 
-Status: audited, not implemented.
-Remote issue: not filed; API access is blocked.
+Implementation branch: `fix/reconcile-reminders`; implementation in progress.
+Remote issue: https://github.com/4499io/yaht/issues/3

@@ -2,50 +2,42 @@
 
 ## Status
 
-The app currently targets iOS 26.0 and its CI selects `macos-26-xcode-26`
-and an iPhone 17 Pro simulator. No iOS 27 API, behavior change, SDK version,
-or release requirement has been verified in this investigation.
+The app retains iOS 26.0 minimum support. Official Apple research now verifies
+SDK 27/Xcode 27 changes and iOS 27.1 adaptive layout APIs. See the
+[verified research](research.md) for exact source links, availability, and
+which changes affect this app. Network access was restored and the issues
+below were filed successfully. Apple-platform builds/runtime remain unverified
+because this environment runs Linux.
 
-Official-source requests fail at the environment's HTTPS proxy with CONNECT
-403, before reaching Apple. This is a network access failure, not evidence
-that iOS 27 documentation exists or does not exist. GitHub API access is
-also blocked, so the files in `issues/` are **local issue drafts**, not filed
-GitHub issues. Do not assign remote issue numbers until creation succeeds.
+Confirmed requirements include new State macro semantics, launch-screen keys,
+scene lifecycle, and changed sheet/popover control environment propagation.
+Yaht already configures generated launch screens and uses SwiftUI App/WindowGroup;
+the remaining work includes checking the generated app and compiling the State
+initializers, rather than blindly changing otherwise valid settings.
 
-The environment configuration draft adds `developer.apple.com`,
-`www.apple.com`, and `api.github.com` to custom allowed domains. Applying
-that configuration and rechecking connectivity are still required.
-
-## Research sources to verify
-
-- Release notes index: https://developer.apple.com/documentation/ios-ipados-release-notes
-- Candidate iOS 27 release notes (unverified): https://developer.apple.com/documentation/ios-ipados-release-notes/ios-ipados-27-release-notes
-- Apple developer releases: https://developer.apple.com/news/releases/
-- Public iOS overview: https://www.apple.com/ios/
-
-Read official release notes and linked SwiftUI, SwiftData, CloudKit,
-UserNotifications, accessibility, and Xcode notes. Record the SDK/build,
-source URL, exact relevant change, affected code, and required validation
-for each finding. Distinguish SDK-linked behavior changes from changes that
-also affect the existing binary on the new OS. Do not infer requirements
-from the OS version number.
+New reserved-region APIs are available from **iOS 27.1**, not 27.0. The adaptive
+layout branch preserves baseline builds behind `YAHT_IOS27_1_SDK`; the SDK
+validation runner enables this condition only when it detects SDK 27.1+.
+Use runtime availability checks as well. Compiler version alone does not
+identify the SDK.
 
 Do not raise the minimum deployment target solely to support a newer OS.
-Keep iOS 26 compatibility unless a verified requirement or product decision
-calls for dropping it. Do not change the SwiftData schema or persisted values
-without an explicit migration plan and existing-store tests.
+Do not change the SwiftData schema without an explicit existing-store migration
+plan. The current CI runner and simulator still target Xcode/iOS 26; a new CI
+image must be verified before replacing it.
 
 ## Code-confirmed preparation
 
-| Local draft | Priority | Finding | Branch | Status |
+| Issue | Priority | Work | Branch | Status |
 | --- | --- | --- | --- | --- |
-| [Preserve persistence](issues/preserve-persistent-store.md) | P1 | Any CloudKit startup error moves the existing SQLite store aside; local fallback is not explicitly local; final fallback silently accepts volatile writes | `fix/preserve-persistent-store` | Committed as `372b200` and `57860c8`; five new tests, Apple-platform validation pending |
-| [Editor accessibility](issues/editor-accessibility.md) | P2 | Color-only buttons lack spoken names and editor controls have small targets | `fix/habit-color-accessibility` | Committed as `6bc58ee` and `0e9c3ec`; Apple-platform validation pending |
-| [Notification reconciliation](issues/notification-reconciliation.md) | P2 | Bulk reminder reconciliation has no callers; scheduling operations can interleave at awaits | Not started | Needs focused implementation and regression tests |
-| [Verify iOS 27 compatibility](issues/verify-ios27-compatibility.md) | P1 | Official release research and Apple-platform validation remain unavailable | `chore/ios27-migration-plan` | Blocked on access and macOS tooling |
+| [#1](https://github.com/4499io/yaht/issues/1) | P1 | Preserve database on startup failure | `fix/preserve-persistent-store` | `372b200`, `57860c8`; five tests added, Apple validation pending |
+| [#2](https://github.com/4499io/yaht/issues/2) | P2 | Label and enlarge editor controls | `fix/habit-color-accessibility` | `6bc58ee`, `0e9c3ec`; Apple validation pending |
+| [#3](https://github.com/4499io/yaht/issues/3) | P2 | Reconcile/serialize device reminders | `fix/reconcile-reminders` | Implementation in progress |
+| [#4](https://github.com/4499io/yaht/issues/4) | P1 | Validate SDK 27 builds and generated metadata | `test/ios27-sdk-readiness` | Implementation in progress |
+| [#5](https://github.com/4499io/yaht/issues/5) | P1 | Avoid active hardware divisions on 27.1 | `feat/ios27-reserved-region-layout` | Implementation in progress |
 
-These findings are existing defects or validation gaps, not claims about
-new iOS 27 requirements. Worktrees are under `/workspace/yaht-worktrees/`;
+Issues #1–3 address existing defects. Issues #4–5 cover confirmed new-SDK
+requirements and adaptive API adoption. Worktrees are under `/workspace/yaht-worktrees/`;
 the original checkout remains on its existing branch.
 
 An atomic push of all three branches was attempted and rejected with HTTP
@@ -81,16 +73,12 @@ Build and simulator tests may disable signing as in CI. CloudKit behavior and
 notification delivery need an appropriately provisioned device/account.
 App Store deployment is a separate action and is not authorized by this plan.
 
-## Filing drafts after access is restored
+## Remote status
 
-First check existing issues to avoid duplicates:
+All five issues are filed in `4499io/yaht`. Local issue body copies are kept in
+`issues/` for review. Issues stay open until their acceptance criteria and
+Apple-platform validation pass.
 
-```sh
-gh issue list --repo 4499io/yaht --state all --limit 100
-```
-
-From this checkout, create each remaining issue with its title from the draft
-and `--body-file docs/ios27/issues/<file>.md`. Record the returned URL in this
-table and link the corresponding branch. Creating drafts locally does not
-prove remote filing or API permissions. Do not close implementation issues
-until Apple-platform checks pass.
+The current GitHub account has `pull: true`, `push: false`. Creating issues
+works; publishing implementation branches is still blocked by repository write
+permission. No branches were force-pushed, merged, or deployed.
