@@ -44,27 +44,29 @@ struct ScheduleSection: View {
     }
 
     private var weekdayToggles: some View {
-        HStack(spacing: 6) {
-            ForEach(weekdays, id: \.weekday) { day in
-                let selected = viewModel.isWeekdaySelected(day.weekday)
-                Button {
-                    viewModel.toggleWeekday(day.weekday)
-                } label: {
-                    Text(day.label)
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                        .foregroundStyle(selected ? Cyberdream.textPrimary : Cyberdream.textSecondary)
-                        .background(
-                            selected ? AnyShapeStyle(viewModel.selectedColor) : AnyShapeStyle(.ultraThinMaterial),
-                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(weekdays, id: \.weekday) { day in
+                    let selected = viewModel.isWeekdaySelected(day.weekday)
+                    Button {
+                        viewModel.toggleWeekday(day.weekday)
+                    } label: {
+                        Text(day.label)
+                            .font(.caption.weight(.semibold))
+                            .frame(minWidth: 44, minHeight: 44)
+                            .foregroundStyle(selected ? Cyberdream.textPrimary : Cyberdream.textSecondary)
+                            .background(
+                                selected ? AnyShapeStyle(viewModel.selectedColor) : AnyShapeStyle(.ultraThinMaterial),
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("habit-edit-weekday-\(day.weekday)")
+                    .accessibilityAddTraits(selected ? [.isSelected] : [])
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("habit-edit-weekday-\(day.weekday)")
-                .accessibilityAddTraits(selected ? [.isSelected] : [])
             }
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 4)
     }
 }
 
