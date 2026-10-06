@@ -1,0 +1,128 @@
+name: CI
+
+# All jobs run on GitHub-hosted runners (free for this public repo).
+#   ios26: existing tests against the iOS 26 SDK (the deployment target).
+#   ios27: scripts/validate_ios27.py on the `xcode-27` preview image, pinned
+#          to IOS27_XCODE so SDK 27.1-gated layout code is compiled and tested.
+# Simulators are picked from what the selected Xcode reports, never by a
+# hard-coded device name, because hosted images change without notice.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: Script tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 -B -m unittest discover -s scripts/tests -p 'test_*.py' -v
+
+  ios26:
+    name: Build and test (iOS 26 baseline)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+      - name: Pick simulator
+        id: sim
+        run: echo "destination=$(python3 scripts/ci/pick_simulator.py --min 26 --max 26)" >> "$GITHUB_OUTPUT"
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Yaht.xcodeproj \
+            -scheme Yaht \
+            -destination '${{ steps.sim.outputs.destination }}' \
+            -parallel-testing-enabled NO \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee build.log
+      - name: Test summary
+        if: always()
+        run: xcrun xcresulttool get test-results summary --path TestResults.xcresult --compact || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios26-results
+          path: |
+            build.log
+            TestResults.xcresult
+          retention-days: 7
+
+  ios27:
+    name: Validate iOS 27 SDK
+    # Preview image: https://github.com/actions/runner-images (xcode-27-arm64).
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      IOS27_XCODE: "27.1"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check for validator
+        id: validator
+        run: |
+          if [[ -f scripts/validate_ios27.py ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::scripts/validate_ios27.py is not on this ref; skipping iOS 27 validation."
+          fi
+      - name: Select Xcode ${{ env.IOS27_XCODE }}
+        if: steps.validator.outputs.present == 'true'
+        run: |
+          # Match on `xcodebuild -version`, not the app's file name: image
+          # paths do not reliably say whether a build is a beta.
+          for app in /Applications/Xcode*.app; do
+            version=$(DEVELOPER_DIR="$app/Contents/Developer" xcodebuild -version 2>/dev/null | sed -n 's/^Xcode //p')
+            if [[ "$version" == "$IOS27_XCODE" || "$version" == "$IOS27_XCODE".* ]]; then
+              echo "DEVELOPER_DIR=$app/Contents/Developer" >> "$GITHUB_ENV"
+              echo "Selected $app ($version)"
+              exit 0
+            fi
+          done
+          echo "::error::Xcode $IOS27_XCODE is not installed on this image. Installed:"
+          ls -d /Applications/Xcode*.app
+          exit 1
+      - name: Pick simulator
+        id: sim
+        if: steps.validator.outputs.present == 'true'
+        run: |
+          xcodebuild -version
+          sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          echo "destination=$(python3 scripts/ci/pick_simulator.py --min "$sdk" --max "$sdk")" >> "$GITHUB_OUTPUT"
+      - name: Validate
+        if: steps.validator.outputs.present == 'true'
+        env:
+          TMPDIR: ${{ runner.temp }}/ios27
+        run: |
+          mkdir -p "$TMPDIR"
+          python3 scripts/validate_ios27.py '${{ steps.sim.outputs.destination }}'
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.validator.outputs.present == 'true'
+        with:
+          name: ios27-validation
+          path: |
+            ${{ runner.temp }}/ios27/yaht-ios27-*/*.log
+            ${{ runner.temp }}/ios27/yaht-ios27-*/test-summary.json
+            ${{ runner.temp }}/ios27/yaht-ios27-*/Tests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
