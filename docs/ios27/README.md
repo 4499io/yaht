@@ -37,20 +37,18 @@ image must be verified before replacing it.
 | [#5](https://github.com/4499io/yaht/issues/5) | P1 | Avoid active hardware divisions on 27.1 | `feat/ios27-reserved-region-layout` | `dbda231`, `043a2d4`; 11 geometry tests added, Apple validation pending |
 
 Issues #1–3 address existing defects. Issues #4–5 cover confirmed new-SDK
-requirements and adaptive API adoption. Worktrees are under `/workspace/yaht-worktrees/`;
-the original checkout remains on its existing branch.
+requirements and adaptive API adoption.
 
-Upstream branch publishing remains blocked: the current GitHub identity has
-read/issue access but no repository push permission. Fork creation was also
-attempted and rejected with `Resource not accessible by integration` (HTTP
-403). All implementation commits remain local; restore repository write access
-or supported fork permission before publishing. Apple research and issue API
-access now work; the former network blocker is resolved.
+The handover bundle was verified and all seven branches restored in the existing
+checkout at `/workspace/yaht`, preserving the pre-existing `work` branch. The
+integration handover tip was `461bc292a9ddbbf756298e3738c06d843d60d810`.
+The current checkout uses `integration/ios27-upgrade`; the previous environment's
+worktree paths are historical and are not required to continue development.
 
-An integration worktree at `/workspace/yaht-worktrees/ios27-integration`, branch
-`integration/ios27-upgrade`, combines the independent fixes for Apple-platform
-validation. The original checkout remains unchanged. No remote PR, merge, or
-deployment has been created.
+GitHub authentication now verifies `gh api user` as `4499io`, and repository
+permissions include `push: true`. All seven handover branch tips were published
+to `4499io/yaht` without force-pushing. The previous read-only authentication
+blocker is resolved. No merge or deployment has occurred.
 
 ## Required validation matrix
 
@@ -85,19 +83,19 @@ All five issues are filed in `4499io/yaht`. Local issue body copies are kept in
 `issues/` for review. Issues stay open until their acceptance criteria and
 Apple-platform validation pass.
 
-The current GitHub account has `pull: true`, `push: false`. Creating issues
-works; publishing implementation branches is still blocked by repository write
-permission. No branches were force-pushed, merged, or deployed.
+The current GitHub account is `4499io` with verified push permission. The seven
+handover branches are published upstream. Keep issues open until their acceptance
+checks pass; publication does not establish Apple-platform compatibility.
 
 ## Prepared integration and checks
 
 `integration/ios27-upgrade` combines all five implementation branches and the
-research record in `/workspace/yaht-worktrees/ios27-integration`. No upstream
+research record in the existing `/workspace/yaht` checkout. No upstream
 changes were merged. New Apple-platform regressions comprise five persistence,
 thirteen notification reconciliation, and eleven free-rectangle cases; all
 29 are unrun here. The reproducible Python validator suite passed three test
 methods covering thirteen simulated command scenarios. Python syntax, project
-XML and whitespace checks passed on the combined worktree. Palette tokens and
+XML and whitespace checks passed on the combined integration branch. Palette tokens and
 ordering remain unchanged. These checks do not establish app/SDK compatibility.
 
 Read-only reviews corrected async notification removal/identifier reuse,
