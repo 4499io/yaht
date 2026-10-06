@@ -11,13 +11,14 @@ struct ScheduleSection: View {
     ]
 
     var body: some View {
-        Section("Schedule") {
-            Picker("Repeats", selection: $viewModel.scheduleKind) {
-                Text("Every day").tag(ScheduleKind.daily)
-                Text("Specific days").tag(ScheduleKind.specificWeekdays)
-                Text("Every N days").tag(ScheduleKind.everyNDays)
-                Text("Times per week").tag(ScheduleKind.timesPerWeek)
+        Section("When") {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                chip(.daily, "Every day")
+                chip(.specificWeekdays, "Some days")
+                chip(.timesPerWeek, "Times a week")
+                chip(.everyNDays, "Every few days")
             }
+            .padding(.vertical, 4)
             .accessibilityIdentifier("habit-edit-schedule-kind")
 
             switch viewModel.scheduleKind {
@@ -41,9 +42,44 @@ struct ScheduleSection: View {
                 .accessibilityIdentifier("habit-edit-weekly-target")
             }
         }
+        .listRowBackground(Theme.surface)
     }
 
+    private func chip(_ kind: ScheduleKind, _ title: LocalizedStringKey) -> some View {
+        let isSelected = viewModel.scheduleKind == kind
+        return Button {
+            viewModel.scheduleKind = kind
+        } label: {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundStyle(isSelected ? Theme.onAccent : Theme.textPrimary)
+                .background(
+                    isSelected ? viewModel.selectedColor : Theme.raised,
+                    in: Capsule()
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    /// Seven equal-width 44-point targets fill the row when they fit; at
+    /// larger Dynamic Type sizes or very narrow widths the row scrolls instead
+    /// of shrinking the targets.
     private var weekdayToggles: some View {
+        ViewThatFits(in: .horizontal) {
+            weekdayRow(fillsWidth: true)
+            ScrollView(.horizontal) {
+                weekdayRow(fillsWidth: false)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func weekdayRow(fillsWidth: Bool) -> some View {
         HStack(spacing: 6) {
             ForEach(weekdays, id: \.weekday) { day in
                 let selected = viewModel.isWeekdaySelected(day.weekday)
@@ -52,19 +88,19 @@ struct ScheduleSection: View {
                 } label: {
                     Text(day.label)
                         .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                        .foregroundStyle(selected ? Cyberdream.textPrimary : Cyberdream.textSecondary)
+                        .frame(minWidth: 44, maxWidth: fillsWidth ? .infinity : nil, minHeight: 44)
+                        .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
                         .background(
-                            selected ? AnyShapeStyle(viewModel.selectedColor) : AnyShapeStyle(.ultraThinMaterial),
+                            selected ? viewModel.selectedColor : Theme.raised,
                             in: RoundedRectangle(cornerRadius: 8, style: .continuous)
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .accessibilityIdentifier("habit-edit-weekday-\(day.weekday)")
+                .accessibilityLabel(Text(Calendar.current.weekdaySymbols[day.weekday - 1]))
                 .accessibilityAddTraits(selected ? [.isSelected] : [])
             }
         }
-        .padding(.vertical, 4)
     }
 }
 
@@ -73,9 +109,11 @@ struct RemindersSection: View {
     @Bindable var viewModel: HabitEditViewModel
 
     var body: some View {
-        Section("Reminders") {
+        Section {
             ForEach($viewModel.reminders) { $reminder in
-                ReminderRow(reminder: $reminder)
+                ReminderRow(reminder: $reminder) {
+                    viewModel.removeReminder(id: reminder.id)
+                }
             }
             .onDelete { viewModel.removeReminders(at: $0) }
 
@@ -85,17 +123,29 @@ struct RemindersSection: View {
                 Label("Add reminder", systemImage: "plus.circle.fill")
             }
             .accessibilityIdentifier("habit-edit-add-reminder")
+        } header: {
+            Text("Reminders")
+        } footer: {
+            if !viewModel.reminders.isEmpty {
+                Text("Remove a reminder with its bin button or by swiping it left.")
+            }
         }
+        .listRowBackground(Theme.surface)
     }
 }
 
 /// A single editable reminder draft row.
+///
+/// Days use a menu rather than a full-width segmented control: a segmented
+/// control claims horizontal drags, which blocked swipe-to-delete on the row.
+/// The visible remove button keeps deletion discoverable either way.
 private struct ReminderRow: View {
     @Binding var reminder: ReminderDraft
+    let onRemove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
                 DatePicker(
                     "Time",
                     selection: $reminder.time,
@@ -104,11 +154,23 @@ private struct ReminderRow: View {
                 .labelsHidden()
                 .accessibilityIdentifier("habit-edit-reminder-time")
 
-                Spacer()
+                Spacer(minLength: 0)
 
                 Toggle("Enabled", isOn: $reminder.isEnabled)
                     .labelsHidden()
                     .accessibilityIdentifier("habit-edit-reminder-enabled")
+
+                // Borderless: in a Form row, default-styled buttons make the
+                // whole row their tap target.
+                Button(role: .destructive, action: onRemove) {
+                    Image(systemName: "trash")
+                        .foregroundStyle(Theme.danger)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Remove reminder")
+                .accessibilityIdentifier("habit-edit-reminder-remove")
             }
 
             Picker("Days", selection: $reminder.scope) {
@@ -116,7 +178,7 @@ private struct ReminderRow: View {
                 Text("Weekdays").tag(ReminderScope.weekdaysOnly)
                 Text("Weekends").tag(ReminderScope.weekendsOnly)
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
             .accessibilityIdentifier("habit-edit-reminder-scope")
         }
         .padding(.vertical, 4)

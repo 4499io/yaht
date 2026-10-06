@@ -13,9 +13,7 @@ import SwiftUI
 struct GlobalActivityGridView: View {
     private let weeks: Int
     private let cells: [DayCell]
-
-    /// Neutral accent used for the intensity legend (the grid itself is multi-hued).
-    private let legendColor = Color.accentColor
+    private let checkIns: Int
 
     /// One day's rendering data. `color == nil` means "no completions".
     private struct DayCell {
@@ -28,28 +26,29 @@ struct GlobalActivityGridView: View {
     init(habits: [Habit], weeks: Int = 20) {
         let weekCount = max(weeks, 1)
         self.weeks = weekCount
-        self.cells = Self.buildCells(habits: habits, weeks: weekCount, calendar: .current)
+        let built = Self.buildCells(habits: habits, weeks: weekCount, calendar: .current)
+        self.cells = built.cells
+        self.checkIns = built.checkIns
     }
 
     var body: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 12) {
+        Card(padding: 16) {
+            VStack(alignment: .leading, spacing: 14) {
                 header
                 grid
-                legend
             }
         }
     }
 
     private var header: some View {
-        HStack {
-            Text("Activity")
-                .font(.headline)
-                .foregroundStyle(Cyberdream.textPrimary)
+        HStack(alignment: .firstTextBaseline) {
+            Text("Last \(weeks) weeks")
+                .font(.rounded(17))
+                .foregroundStyle(Theme.textPrimary)
             Spacer()
-            Text("\(weeks) weeks")
-                .font(.caption)
-                .foregroundStyle(Cyberdream.textSecondary)
+            Text("\(checkIns) check-ins")
+                .font(.footnote)
+                .foregroundStyle(Theme.textTertiary)
         }
     }
 
@@ -82,25 +81,11 @@ struct GlobalActivityGridView: View {
         return ActivityStyle.fill(color, level: cell.intensity)
     }
 
-    private var legend: some View {
-        HStack(spacing: ActivityStyle.cellSpacing) {
-            Text("Less")
-                .font(.caption2)
-                .foregroundStyle(Cyberdream.textSecondary)
-            ForEach(ActivityStyle.legendLevels, id: \.self) { level in
-                RoundedRectangle(cornerRadius: ActivityStyle.cornerRadius, style: .continuous)
-                    .fill(ActivityStyle.legendFill(legendColor, level: level))
-                    .frame(width: ActivityStyle.cellSize, height: ActivityStyle.cellSize)
-            }
-            Text("More")
-                .font(.caption2)
-                .foregroundStyle(Cyberdream.textSecondary)
-        }
-    }
-
     /// Builds the ordered grid cells (column-major: one column per week, seven
     /// rows per column) from a single precomputed `[Date: (color, intensity)]` map.
-    private static func buildCells(habits: [Habit], weeks: Int, calendar cal: Calendar) -> [DayCell] {
+    private static func buildCells(
+        habits: [Habit], weeks: Int, calendar cal: Calendar
+    ) -> (cells: [DayCell], checkIns: Int) {
         let today = cal.startOfDay(for: Date())
         let weekStart = cal.dateInterval(of: .weekOfYear, for: today)?.start ?? today
         let gridStart = cal.date(byAdding: .weekOfYear, value: -(weeks - 1), to: weekStart) ?? weekStart
@@ -113,11 +98,13 @@ struct GlobalActivityGridView: View {
 
         // Precompute the color + intensity for each active day exactly once.
         var map: [Date: (color: Color, intensity: Double)] = [:]
+        var checkIns = 0
         for date in dates where date <= today {
             let day = cal.startOfDay(for: date)
             guard map[day] == nil else { continue }
             let completed = habits.filter { $0.isCompleted(on: day, calendar: cal) }
             guard !completed.isEmpty else { continue }
+            checkIns += completed.count
 
             let due = habits.filter { $0.isDue(on: day, calendar: cal) }
             let completedDue = due.filter { $0.isCompleted(on: day, calendar: cal) }.count
@@ -126,18 +113,19 @@ struct GlobalActivityGridView: View {
             map[day] = (blend(completed.map(\.color)), intensity)
         }
 
-        return dates.map { date in
+        let cells = dates.map { date in
             let inRange = date <= today
             let entry = inRange ? map[cal.startOfDay(for: date)] : nil
             return DayCell(date: date, color: entry?.color, intensity: entry?.intensity ?? 0, inRange: inRange)
         }
+        return (cells, checkIns)
     }
 }
 
 #Preview("Global Activity") {
     let habits = (0..<4).map { index -> Habit in
         let habit = Habit()
-        habit.colorHex = Cyberdream.habitPaletteHex[index]
+        habit.colorHex = Theme.habitPaletteHex[index]
         return habit
     }
     return GlobalActivityGridView(habits: habits)

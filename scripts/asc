@@ -14,6 +14,9 @@
 #   groups                  List beta groups
 #   workflows               List Xcode Cloud workflows
 #   trigger <branch>        Trigger a build on a branch (bypasses file filter)
+#   wait <number>           Wait for a build run to finish; exit 1 unless it succeeded
+#   issues [<number>]       Show errors and warnings of a build run (default: latest)
+#   logs <number> <dir>     Download a build run's log bundles into <dir>
 #
 # ── ONE-TIME SETUP for Yaht (new app in App Store Connect) ────────────────────
 # KEY_ID / ISSUER_ID are ACCOUNT-level (same Apple developer account as 99issues)
@@ -169,6 +172,84 @@ cmd_build_log() {
     local action_id="${1:?Usage: asc build-log <action-id>}"
     api GET "/ciBuildActions/$action_id/artifacts" \
     | jq '.data[] | {fileName: .attributes.fileName, downloadUrl: .attributes.downloadUrl}'
+}
+
+cmd_wait() {
+    local number="${1:?Usage: asc wait <build-number>}"
+    local timeout="${ASC_WAIT_TIMEOUT:-3600}"
+    local interval="${ASC_WAIT_INTERVAL:-30}"
+    local run_id
+    run_id=$(resolve_build_run_id "$number")
+    if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+        echo "Error: build #$number not found"
+        exit 1
+    fi
+
+    local waited=0 progress status last=""
+    while true; do
+        local data
+        data=$(api GET "/ciBuildRuns/$run_id")
+        progress=$(echo "$data" | jq -r '.data.attributes.executionProgress // "UNKNOWN"')
+        status=$(echo "$data" | jq -r '.data.attributes.completionStatus // empty')
+        if [ "$progress" != "$last" ]; then
+            echo "Build #$number: $progress"
+            last="$progress"
+        fi
+        if [ "$progress" = "COMPLETE" ]; then
+            echo "Build #$number finished: ${status:-UNKNOWN}"
+            [ "$status" = "SUCCEEDED" ] && return 0
+            return 1
+        fi
+        if [ "$waited" -ge "$timeout" ]; then
+            echo "Error: build #$number still $progress after ${timeout}s"
+            return 1
+        fi
+        sleep "$interval"
+        waited=$((waited + interval))
+    done
+}
+
+cmd_issues() {
+    local run_id
+    run_id=$(resolve_build_run_id "${1:-}")
+    if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+        echo "Error: build not found"
+        exit 1
+    fi
+
+    local action_ids
+    action_ids=$(api GET "/ciBuildRuns/$run_id/actions" \
+        | jq -r '.data[] | "\(.id)\t\(.attributes.name)\t\(.attributes.completionStatus // .attributes.executionProgress)"')
+    while IFS=$'\t' read -r action_id name status; do
+        [ -z "$action_id" ] && continue
+        echo "== $name: $status"
+        api GET "/ciBuildActions/$action_id/issues?limit=200" \
+        | jq -r '.data[] | .attributes
+            | "\(.issueType)  \(.fileSource.path // "-"):\(.fileSource.lineNumber // "-")  \(.message)"'
+    done <<< "$action_ids"
+}
+
+cmd_logs() {
+    local number="${1:?Usage: asc logs <build-number> <dir>}"
+    local dir="${2:?Usage: asc logs <build-number> <dir>}"
+    local run_id
+    run_id=$(resolve_build_run_id "$number")
+    if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+        echo "Error: build #$number not found"
+        exit 1
+    fi
+    mkdir -p "$dir"
+    local action_id
+    for action_id in $(api GET "/ciBuildRuns/$run_id/actions" | jq -r '.data[].id'); do
+        api GET "/ciBuildActions/$action_id/artifacts" \
+        | jq -r '.data[] | select(.attributes.fileType == "LOG_BUNDLE")
+            | "\(.attributes.fileName)\t\(.attributes.downloadUrl)"' \
+        | while IFS=$'\t' read -r name url; do
+            [ -z "$url" ] && continue
+            echo "Downloading $name"
+            curl -sfL -o "$dir/$name" "$url"
+        done
+    done
 }
 
 cmd_testflight() {
@@ -364,6 +445,9 @@ case "${1:-help}" in
     groups)        cmd_groups ;;
     workflows)     cmd_workflows ;;
     trigger)       cmd_trigger "${2:-}" ;;
+    wait)          cmd_wait "${2:-}" ;;
+    issues)        cmd_issues "${2:-}" ;;
+    logs)          cmd_logs "${2:-}" "${3:-}" ;;
     *)
         echo "asc — App Store Connect CLI for Yaht"
         echo ""
@@ -379,5 +463,8 @@ case "${1:-help}" in
         echo "  groups                  List beta groups"
         echo "  workflows               List Xcode Cloud workflows"
         echo "  trigger <branch>        Trigger a build on a branch (bypasses file filter)"
+        echo "  wait <number>           Wait for a build run to finish; exit 1 unless it succeeded"
+        echo "  issues [<number>]       Show errors and warnings of a build run (default: latest)"
+        echo "  logs <number> <dir>     Download a build run's log bundles into <dir>"
         ;;
 esac

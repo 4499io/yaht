@@ -39,9 +39,20 @@ jobs:
         run: |
           xcodebuild -version
           xcrun --sdk iphonesimulator --show-sdk-version
+      - name: SDK conditions
+        # Configuration/SDKConditions.xcconfig must leave YAHT_IOS27_1_SDK unset before SDK 27.1.
+        run: |
+          settings=$(xcodebuild -project Yaht.xcodeproj -scheme Yaht -sdk iphonesimulator -showBuildSettings)
+          grep -E '^ +SWIFT_ACTIVE_COMPILATION_CONDITIONS = ' <<< "$settings"
+          if grep -q 'YAHT_IOS27_1_SDK' <<< "$settings"; then
+            echo "::error::YAHT_IOS27_1_SDK is set for an SDK older than 27.1."
+            exit 1
+          fi
       - name: Pick simulator
         id: sim
-        run: echo "destination=$(python3 scripts/ci/pick_simulator.py --min 26 --max 26)" >> "$GITHUB_OUTPUT"
+        run: |
+          destination=$(python3 scripts/ci/pick_simulator.py --min 26 --max 26)
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Test
         run: |
           set -o pipefail
@@ -60,7 +71,7 @@ jobs:
       - name: Test summary
         if: always()
         run: xcrun xcresulttool get test-results summary --path TestResults.xcresult --compact || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: ios26-results
@@ -108,7 +119,9 @@ jobs:
         run: |
           xcodebuild -version
           sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
-          echo "destination=$(python3 scripts/ci/pick_simulator.py --min "$sdk" --max "$sdk")" >> "$GITHUB_OUTPUT"
+          # Any iOS 27 runtime the selected SDK can run; the newest wins.
+          destination=$(python3 scripts/ci/pick_simulator.py --min 27 --max "$sdk")
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Validate
         if: steps.validator.outputs.present == 'true'
         env:
@@ -116,7 +129,7 @@ jobs:
         run: |
           mkdir -p "$TMPDIR"
           python3 scripts/validate_ios27.py '${{ steps.sim.outputs.destination }}'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always() && steps.validator.outputs.present == 'true'
         with:
           name: ios27-validation

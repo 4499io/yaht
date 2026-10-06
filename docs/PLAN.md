@@ -1,6 +1,7 @@
 # Yaht — Build Plan (small specs, iterate)
 
-Repo: `gitlab.com/4499.io/yaht/xcode` · iPhone-only · always-dark Cyberdream Liquid Glass ·
+Repo: `github.com/4499io/yaht` (moved from GitLab; steps below that mention GitLab, MRs or
+`.gitlab-ci.yml` are history, CI is now `.github/workflows/`) · iPhone-only · always-dark Cyberdream Liquid Glass ·
 SwiftData + CloudKit (no custom sync). Companion: [`LESSONS.md`](./LESSONS.md).
 
 Philosophy: each step is a **small spec** merged as its own MR, reviewed before the next. Stop points
@@ -38,7 +39,7 @@ marked 🛑 = get your feedback before proceeding.
 - Create `.xcodeproj` (per Q#1 decision), targets: `Yaht`, `YahtTests`.
 - Build settings: iOS 26 deploy target, Swift 6, `UIUserInterfaceStyle = Dark`, bundle IDs,
   iCloud/CloudKit + data-protection entitlements.
-- App entry: `ModelContainer` (explicit store URL, migration plan, backup-exclude, move-aside recovery,
+- App entry: `ModelContainer` (explicit store URL, migration plan, backup-exclude, non-destructive startup retry,
   `isRunningTests` guard) + CloudKit config. Empty `SchemaV1`.
 - `.gitlab-ci.yml` goes green on an empty test. → review.
 

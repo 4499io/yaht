@@ -1,29 +1,54 @@
 import SwiftData
 import SwiftUI
 
-/// Detail screen for a single habit: an oversized identity header, streak and
-/// completion stats, a control to complete / increment today, and the per-habit
-/// activity grid. The toolbar "Edit" action presents the habit editor as a sheet.
+/// What the editor asked to do with a habit when it closed.
+enum HabitRemoval {
+    case delete
+    case archive
+}
+
+/// Detail screen for one habit: identity, streak and this week's progress, a
+/// check-in button, a month calendar and lifetime numbers. "Edit" opens the
+/// editor; deleting or archiving there closes this screen first.
 struct HabitDetailView: View {
     @Environment(HabitStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     private let habit: Habit
     @State private var showingEditor = false
+    @State private var pendingRemoval: HabitRemoval?
 
     init(habit: Habit) {
         self.habit = habit
     }
 
     var body: some View {
+        let today = Date()
+        let stats = HabitStats(habit: habit, today: today)
+        let week = habit.weekProgress(containing: today)
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 18) {
                 header
-                todayCard
-                statsGrid
-                activityCard
+                HStack(spacing: 10) {
+                    streakCard(stats)
+                    weekCard(week)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                CheckInButton(habit: habit, day: today)
+                Card(padding: 16) {
+                    MonthCalendarView(habit: habit)
+                }
+                HStack(spacing: 10) {
+                    numberTile("\(stats.bestStreak)", caption: "best streak, days")
+                    numberTile("\(stats.last30Percent)%", caption: "last 30 days")
+                    numberTile("\(stats.totalCompleted)", caption: "check-ins")
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 32)
         }
-        .navigationTitle(habit.name.isEmpty ? "Habit" : habit.name)
+        .scrollIndicators(.hidden)
+        .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -31,151 +56,171 @@ struct HabitDetailView: View {
                     .accessibilityIdentifier("habit-detail-edit-button")
             }
         }
-        .sheet(isPresented: $showingEditor) {
-            HabitEditView(habit: habit)
+        .sheet(isPresented: $showingEditor, onDismiss: {
+            if pendingRemoval != nil { dismiss() }
+        }) {
+            HabitEditView(habit: habit) { removal in
+                pendingRemoval = removal
+            }
         }
+        .onDisappear(perform: applyPendingRemoval)
     }
 
     // MARK: - Sections
 
     private var header: some View {
-        VStack(spacing: 8) {
-            Text(habit.emoji.isEmpty ? "•" : habit.emoji)
-                .font(.system(size: 64))
-            Text(habit.name.isEmpty ? "Untitled" : habit.name)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(Cyberdream.textPrimary)
-            Text(scheduleSummary)
-                .font(.subheadline)
-                .foregroundStyle(Cyberdream.textSecondary)
+        HStack(spacing: 16) {
+            HabitTile(emoji: habit.emoji, color: habit.color, size: 64)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(habit.name.isEmpty ? "Untitled" : habit.name)
+                    .font(.rounded(30, weight: .heavy))
+                    .foregroundStyle(Theme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 8)
+        .padding(.top, 4)
     }
 
-    private var todayCard: some View {
-        GlassCard {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Today")
-                        .font(.headline)
-                        .foregroundStyle(Cyberdream.textPrimary)
-                    Text(todayStatus)
-                        .font(.subheadline)
-                        .foregroundStyle(Cyberdream.textSecondary)
+    private func streakCard(_ stats: HabitStats) -> some View {
+        Card(cornerRadius: 22, padding: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Current streak")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textTertiary)
+                Text("\(stats.currentStreak)")
+                    .font(.rounded(44, weight: .heavy))
+                    .monospacedDigit()
+                    .foregroundStyle(habit.color)
+                Text(stats.currentStreak == 1 ? "day in a row" : "days in a row")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func weekCard(_ week: WeekProgress) -> some View {
+        Card(cornerRadius: 22, padding: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    ProgressRing(progress: week.fraction, color: habit.color, lineWidth: 8)
+                    Text("\(week.completed)/\(week.target)")
+                        .font(.rounded(16, weight: .heavy))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.textPrimary)
                 }
-                Spacer(minLength: 12)
-                HabitCompleteControl(habit: habit, day: Date())
+                .frame(width: 64, height: 64)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("This week")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.textTertiary)
+                    Text(week.isMet ? "Target met" : "\(max(week.target - week.completed, 0)) more to go")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
+        .accessibilityElement(children: .combine)
     }
 
-    private var statsGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            StatTile(title: "Current Streak", value: "\(stats.currentStreak)", tint: habit.color)
-            StatTile(title: "Best Streak", value: "\(stats.bestStreak)")
-            StatTile(title: "Last 30 Days", value: "\(stats.last30Percent)%")
-            StatTile(title: "Total Days", value: "\(stats.totalCompleted)")
-        }
-    }
-
-    private var activityCard: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Activity")
-                    .font(.headline)
-                    .foregroundStyle(Cyberdream.textPrimary)
-                ActivityGridView(habit: habit)
+    private func numberTile(_ value: String, caption: LocalizedStringKey) -> some View {
+        Card(cornerRadius: 18, padding: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(value)
+                    .font(.rounded(24, weight: .heavy))
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.textPrimary)
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(Theme.textTertiary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
+        .accessibilityElement(children: .combine)
     }
 
-    // MARK: - Derived text
-
-    private var todayStatus: String {
-        switch habit.habitKind {
-        case .binary:
-            return habit.isCompleted(on: Date()) ? "Completed" : "Not done yet"
-        case .count:
-            let unit = habit.unit.map { " \($0)" } ?? ""
-            return "\(habit.dayCount(on: Date()))/\(max(habit.dailyTarget, 1))\(unit)"
+    private var subtitle: String {
+        var parts = [habit.scheduleSummary]
+        if let goal = habit.goalSummary { parts.append(goal) }
+        let firstReminder = (habit.reminders ?? [])
+            .filter(\.isEnabled)
+            .min { ($0.hour, $0.minute) < ($1.hour, $1.minute) }
+        if let firstReminder {
+            let time = ReminderDraft.date(hour: firstReminder.hour, minute: firstReminder.minute)
+            parts.append(String(localized: "reminder \(time.formatted(date: .omitted, time: .shortened))"))
         }
+        return parts.joined(separator: " · ")
     }
 
-    private var scheduleSummary: String {
-        switch habit.schedule {
-        case .daily: return "Every day"
-        case .specificWeekdays: return "On selected days"
-        case .everyNDays: return "Every \(max(habit.intervalDays, 1)) days"
-        case .timesPerWeek: return "\(max(habit.weeklyTarget, 1))× per week"
+    // MARK: - Removal
+
+    private func applyPendingRemoval() {
+        guard let removal = pendingRemoval else { return }
+        pendingRemoval = nil
+        let id = habit.id
+        switch removal {
+        case .delete: store.delete(habit)
+        case .archive: store.archive(habit)
         }
+        Task { await NotificationScheduler.shared.cancel(forHabitID: id) }
     }
-
-    // MARK: - Stats
-
-    private var stats: HabitStats { HabitStats(habit: habit) }
 }
 
-/// Value type computing streak and completion figures from a habit's logs.
-private struct HabitStats {
-    let currentStreak: Int
-    let bestStreak: Int
-    let totalCompleted: Int
-    let last30Percent: Int
+/// Full-width check-in for today. Yes/no habits toggle; count habits add one.
+private struct CheckInButton: View {
+    @Environment(HabitStore.self) private var store
+    let habit: Habit
+    let day: Date
 
-    init(habit: Habit, calendar: Calendar = .current) {
-        let today = calendar.startOfDay(for: Date())
-
-        // Distinct completed days (start-of-day), sorted ascending.
-        var completedSet = Set<Date>()
-        for log in habit.logs ?? [] where habit.isCompleted(on: log.day, calendar: calendar) {
-            completedSet.insert(calendar.startOfDay(for: log.day))
-        }
-        let completed = completedSet.sorted()
-        totalCompleted = completed.count
-
-        // Current streak: walk back from today (or yesterday, if today is pending).
-        var streak = 0
-        var cursor = today
-        if !completedSet.contains(today) {
-            cursor = calendar.date(byAdding: .day, value: -1, to: today) ?? today
-        }
-        while completedSet.contains(cursor) {
-            streak += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = previous
-        }
-        currentStreak = streak
-
-        // Best streak: longest run of consecutive completed days.
-        var best = 0
-        var run = 0
-        var expected: Date?
-        for day in completed {
-            if let expected, expected == day {
-                run += 1
-            } else {
-                run = 1
+    var body: some View {
+        let done = habit.isCompleted(on: day)
+        Button {
+            switch habit.habitKind {
+            case .binary: store.toggleCompletion(for: habit, on: day)
+            case .count: store.increment(habit, on: day, by: 1)
             }
-            best = max(best, run)
-            expected = calendar.date(byAdding: .day, value: 1, to: day)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: habit.habitKind == .count && !done ? "plus" : "checkmark")
+                    .font(.system(size: 17, weight: .heavy))
+                Text(label(done: done))
+            }
+            .font(.rounded(17))
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .foregroundStyle(done ? habit.color : Theme.onAccent)
+            .background(done ? Color.clear : habit.color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(done ? habit.color.opacity(0.5) : .clear, lineWidth: 2)
+            }
+            .contentShape(Rectangle())
         }
-        bestStreak = best
+        .buttonStyle(.plain)
+        .sensoryFeedback(.success, trigger: done) { _, isDone in isDone }
+        .accessibilityHint(habit.habitKind == .binary && done ? Text("Double-tap to undo") : Text(""))
+        .accessibilityIdentifier("habit-detail-check-in")
+    }
 
-        // Completion rate over the trailing 30 days.
-        var last30 = 0
-        for offset in 0..<30 {
-            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
-            if completedSet.contains(day) { last30 += 1 }
+    private func label(done: Bool) -> String {
+        switch habit.habitKind {
+        case .binary:
+            return done ? String(localized: "Done today") : String(localized: "Check in today")
+        case .count:
+            let progress = "\(habit.dayCount(on: day))/\(max(habit.dailyTarget, 1))"
+            return done ? String(localized: "Done today · \(progress)") : String(localized: "Add one · \(progress)")
         }
-        last30Percent = Int((Double(last30) / 30.0 * 100).rounded())
     }
 }
 
 #Preview {
     NavigationStack {
-        HabitDetailView(habit: Habit(name: "Read", emoji: "📚", colorHex: Cyberdream.habitPaletteHex[0]))
+        HabitDetailView(habit: Habit(name: "Read", emoji: "📚", colorHex: Theme.habitPaletteHex[2]))
     }
     .preferredColorScheme(.dark)
 }

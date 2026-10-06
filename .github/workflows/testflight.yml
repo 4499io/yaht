@@ -1,8 +1,13 @@
 name: TestFlight
 
-# Manual deploy, replacing GitLab's `deploy:testflight` job. Triggers the
-# Xcode Cloud "yaht default" workflow (archive + sign + build number + upload)
-# via scripts/asc, so signing and upload stay with Xcode Cloud.
+# Ships main to TestFlight: triggers the Xcode Cloud "yaht default" workflow
+# (archive + sign + build number + upload) via scripts/asc, then follows that
+# build to the end. A failed build fails this job, prints Xcode Cloud's errors
+# and warnings here and in the run summary, and attaches its log bundles.
+#
+# Runs on every push to main that changes the app, and on demand from main.
+# Pull requests reach main only after CI passes, so this does not rebuild
+# or retest; Xcode Cloud only archives.
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   ASC_AUTH_KEY   — contents of the App Store Connect .p8 key
@@ -10,34 +15,83 @@ name: TestFlight
 #   ASC_ISSUER_ID  — the issuer ID
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "Yaht/**"
+      - "Yaht.xcodeproj/**"
+      - "Configuration/**"
+      - "ci_scripts/**"
   workflow_dispatch:
+
+# One deploy at a time; a newer push queues behind the running one.
+concurrency:
+  group: testflight
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  trigger:
-    name: Trigger Xcode Cloud build
+  deploy:
+    name: Xcode Cloud build to TestFlight
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 75
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
     steps:
       - uses: actions/checkout@v5
-      - name: Install PyJWT
+      - name: Set up App Store Connect access
+        env:
+          ASC_AUTH_KEY_CONTENT: ${{ secrets.ASC_AUTH_KEY }}
         # scripts/asc calls python3 for JWT signing; the system Python is
-        # externally managed, so put a venv first on PATH.
+        # externally managed, so put a venv first on PATH. ASC_AUTH_KEY is the
+        # path to the .p8 written from the secret.
         run: |
           python3 -m venv "$RUNNER_TEMP/ascvenv"
           "$RUNNER_TEMP/ascvenv/bin/pip" install --quiet pyjwt cryptography
           echo "$RUNNER_TEMP/ascvenv/bin" >> "$GITHUB_PATH"
-      - name: Trigger
-        env:
-          ASC_AUTH_KEY_CONTENT: ${{ secrets.ASC_AUTH_KEY }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        run: |
-          # scripts/asc reads ASC_AUTH_KEY as a path to the .p8 file.
-          export ASC_AUTH_KEY="$RUNNER_TEMP/AuthKey.p8"
           umask 077
-          printf '%s\n' "$ASC_AUTH_KEY_CONTENT" > "$ASC_AUTH_KEY"
-          ./scripts/asc trigger "$GITHUB_REF_NAME"
+          printf '%s\n' "$ASC_AUTH_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_AUTH_KEY=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: Trigger Xcode Cloud
+        id: trigger
+        run: |
+          set -o pipefail
+          ./scripts/asc trigger "$GITHUB_REF_NAME" | tee "$RUNNER_TEMP/trigger.txt"
+          number=$(sed -n '/^{/,$p' "$RUNNER_TEMP/trigger.txt" | jq -r '.number // empty')
+          if [[ -z "$number" ]]; then
+            echo "::error::Xcode Cloud did not return a build number."
+            exit 1
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "Started Xcode Cloud build #$number for $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Wait for Xcode Cloud build
+        env:
+          ASC_WAIT_TIMEOUT: "3900"
+        run: ./scripts/asc wait "${{ steps.trigger.outputs.number }}"
+      - name: Report Xcode Cloud issues
+        if: failure() && steps.trigger.outputs.number != ''
+        run: |
+          ./scripts/asc issues "${{ steps.trigger.outputs.number }}" | tee "$RUNNER_TEMP/issues.txt" || true
+          while IFS= read -r line; do
+            case "$line" in
+              ERROR*) echo "::error::${line#ERROR  }" ;;
+            esac
+          done < "$RUNNER_TEMP/issues.txt"
+          {
+            echo "### Xcode Cloud build #${{ steps.trigger.outputs.number }} failed"
+            echo '```'
+            cat "$RUNNER_TEMP/issues.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          ./scripts/asc logs "${{ steps.trigger.outputs.number }}" "$RUNNER_TEMP/xcode-cloud-logs" || true
+      - uses: actions/upload-artifact@v6
+        if: failure() && steps.trigger.outputs.number != ''
+        with:
+          name: xcode-cloud-logs
+          path: ${{ runner.temp }}/xcode-cloud-logs
+          if-no-files-found: ignore
+          retention-days: 14
