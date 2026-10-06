@@ -1,0 +1,118 @@
+name: CI
+
+# Mirrors the GitLab `test` job on GitHub-hosted macOS runners (free for this
+# public repo), plus an iOS 27 SDK job for scripts/validate_ios27.py.
+#
+# Runner configuration (Settings > Secrets and variables > Actions > Variables):
+#   IOS27_RUNNER — JSON runs-on value for a runner with Xcode 27+ and an
+#                  iOS 27+ simulator, e.g. '["self-hosted","macOS","xcode27"]'
+#                  or '"macos-26"' once the hosted image ships Xcode 27.
+#                  Unset: the iOS 27 job runs only when dispatched manually.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: Script tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 -B -m unittest discover -s scripts/tests -p 'test_*.py' -v
+
+  ios26:
+    name: Build and test (iOS 26 baseline)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+      - name: Pick simulator
+        id: sim
+        run: echo "destination=$(python3 scripts/ci/pick_simulator.py --min-major 26 --max-major 26)" >> "$GITHUB_OUTPUT"
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Yaht.xcodeproj \
+            -scheme Yaht \
+            -destination '${{ steps.sim.outputs.destination }}' \
+            -parallel-testing-enabled NO \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee build.log
+      - name: Test summary
+        if: always()
+        run: xcrun xcresulttool get test-results summary --path TestResults.xcresult --compact || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios26-results
+          path: |
+            build.log
+            TestResults.xcresult
+          retention-days: 7
+
+  ios27:
+    name: Validate iOS 27 SDK
+    if: vars.IOS27_RUNNER != '' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ fromJSON(vars.IOS27_RUNNER || '"macos-26"') }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Xcode 27+
+        run: |
+          best=""; best_version=0
+          for app in /Applications/Xcode*.app; do
+            version=$(DEVELOPER_DIR="$app/Contents/Developer" xcodebuild -version 2>/dev/null | sed -n 's/^Xcode //p')
+            major=${version%%.*}
+            [[ "$major" =~ ^[0-9]+$ ]] && (( major >= 27 )) || continue
+            key=$(printf '%d%03d%03d' $(echo "$version.0.0" | tr '.' ' ' | cut -d' ' -f1-3))
+            if (( key > best_version )); then best="$app"; best_version=$key; fi
+          done
+          if [[ -z "$best" ]]; then
+            echo "::error::No Xcode 27+ under /Applications on this runner. Point the IOS27_RUNNER variable at a runner that has one."
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$best/Contents/Developer" >> "$GITHUB_ENV"
+          echo "Selected $best"
+      - name: Pick simulator
+        id: sim
+        run: |
+          test -f scripts/validate_ios27.py || { echo "::error::scripts/validate_ios27.py is not on this ref."; exit 1; }
+          xcodebuild -version
+          echo "destination=$(python3 scripts/ci/pick_simulator.py --min-major 27)" >> "$GITHUB_OUTPUT"
+      - name: Validate
+        env:
+          TMPDIR: ${{ runner.temp }}/ios27
+        run: |
+          mkdir -p "$TMPDIR"
+          python3 scripts/validate_ios27.py '${{ steps.sim.outputs.destination }}'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios27-validation
+          path: |
+            ${{ runner.temp }}/ios27/yaht-ios27-*/*.log
+            ${{ runner.temp }}/ios27/yaht-ios27-*/test-summary.json
+            ${{ runner.temp }}/ios27/yaht-ios27-*/Tests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
