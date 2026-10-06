@@ -11,8 +11,8 @@ Legend: **COPY** = take the file nearly verbatim · **PATTERN** = copy the idea,
 ## 0. Hard environment facts (unchanged from 99issues)
 
 - **No Xcode/macOS on this Linux VPS.** No `xcodebuild`, `xcrun`, `swift build`, simulators.
-  Tests run in GitLab CI on MR pushes; archives run in **Xcode Cloud** when `project.pbxproj`
-  changes on `main`. Same model as 99issues — reuse it wholesale.
+  Tests run in GitHub Actions on PR pushes; archives run in **Xcode Cloud** when `project.pbxproj`
+  changes on `main`.
 - **Never hand-edit `project.pbxproj`** for adding files — the project uses Xcode automatic file
   discovery. New `.swift` files just appear. (But: creating the *initial* `.xcodeproj` needs a Mac —
   see PLAN.md open question #1.)
@@ -39,7 +39,7 @@ Legend: **COPY** = take the file nearly verbatim · **PATTERN** = copy the idea,
 delegated to **Xcode Cloud**. CI test job sets `CODE_SIGNING_ALLOWED=NO`. Keep this — it's clean.
 
 **Secrets required (never commit):**
-- GitLab CI/CD vars (Protected): `ASC_AUTH_KEY` (File type → path to `.p8`), `ASC_KEY_ID`, `ASC_ISSUER_ID`
+- GitHub Actions secrets: `ASC_AUTH_KEY` (.p8 contents), `ASC_KEY_ID`, `ASC_ISSUER_ID`
 - Xcode Cloud workflow env: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
 
 **GOTCHA — 99issues has live creds committed on disk** (`.mcp.json` with a real `glpat-…`,

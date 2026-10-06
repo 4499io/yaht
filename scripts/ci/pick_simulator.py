@@ -3,8 +3,10 @@
 
 CI runner images change their simulator set without notice, so CI asks the
 selected Xcode which runtimes exist instead of hard-coding a device name.
-Picks the newest iOS runtime within [--min-major, --max-major], then the first
-available iPhone on it by name, and prints `platform=iOS Simulator,id=<UDID>`.
+Picks the newest iOS runtime within [--min, --max], then the first available
+iPhone on it by name, and prints `platform=iOS Simulator,id=<UDID>`. A bound
+compares only the components it names: `--max 26` admits 26.5, `--max 27.1`
+rejects 27.2.
 """
 
 import argparse
@@ -18,14 +20,20 @@ def parse_version(text):
     return tuple(int(part) for part in re.findall(r"\d+", text)[:3])
 
 
-def pick(devices, runtimes, min_major, max_major=None):
+def within(version, minimum, maximum):
+    if version[:len(minimum)] < minimum:
+        return False
+    return maximum is None or version[:len(maximum)] <= maximum
+
+
+def pick(devices, runtimes, minimum, maximum=None):
     candidates = []
     for runtime in runtimes.get("runtimes", []):
         identifier = runtime.get("identifier", "")
         if ".iOS-" not in identifier or not runtime.get("isAvailable"):
             continue
         version = parse_version(runtime.get("version", ""))
-        if not version or version[0] < min_major or (max_major is not None and version[0] > max_major):
+        if not version or not within(version, minimum, maximum):
             continue
         iphones = sorted(
             (device for device in devices.get("devices", {}).get(identifier, [])
@@ -49,12 +57,13 @@ def simctl_json(*args):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--min-major", type=int, required=True)
-    parser.add_argument("--max-major", type=int)
+    parser.add_argument("--min", type=parse_version, required=True, help="e.g. 26 or 27.1")
+    parser.add_argument("--max", type=parse_version, help="e.g. 26 or 27.1")
     args = parser.parse_args(argv)
-    choice = pick(simctl_json("devices", "available"), simctl_json("runtimes"), args.min_major, args.max_major)
+    choice = pick(simctl_json("devices", "available"), simctl_json("runtimes"), args.min, args.max)
     if choice is None:
-        bound = f"{args.min_major}" + (f"-{args.max_major}" if args.max_major is not None else "+")
+        show = lambda version: ".".join(map(str, version))
+        bound = show(args.min) + (f" to {show(args.max)}" if args.max else "+")
         print(f"No available iPhone simulator with an iOS {bound} runtime.", file=sys.stderr)
         return 1
     version, device = choice

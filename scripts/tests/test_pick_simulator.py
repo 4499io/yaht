@@ -35,19 +35,28 @@ class PickSimulatorTests(unittest.TestCase):
         }}
 
     def test_picks_newest_runtime_in_range_then_first_iphone_by_name(self):
-        version, chosen = pick(self.devices, self.runtimes, 26, 26)
+        version, chosen = pick(self.devices, self.runtimes, (26,), (26,))
         self.assertEqual(version, (26, 5))
         self.assertEqual(chosen["udid"], "D")
 
     def test_skips_unavailable_runtimes_and_devices(self):
-        self.assertIsNone(pick(self.devices, self.runtimes, 27))
+        self.assertIsNone(pick(self.devices, self.runtimes, (27,)))
+
+    def test_minor_bounds_cap_runtime_to_the_selected_sdk(self):
+        runtimes = {"runtimes": [runtime("27.0"), runtime("27.1"), runtime("27.2")]}
+        devices = {"devices": {
+            runtime(v)["identifier"]: [device("iPhone 18", v)] for v in ("27.0", "27.1", "27.2")
+        }}
+        version, chosen = pick(devices, runtimes, (27, 1), (27, 1))
+        self.assertEqual((version, chosen["udid"]), ((27, 1), "27.1"))
+        self.assertIsNone(pick(devices, runtimes, (27, 3)))
 
     def test_returns_none_without_matching_runtime(self):
-        self.assertIsNone(pick(self.devices, self.runtimes, 28))
+        self.assertIsNone(pick(self.devices, self.runtimes, (28,)))
 
     def test_ignores_non_iphone_and_other_platforms(self):
         devices = {"devices": {runtime("26.5")["identifier"]: [device("iPad Air", "X")]}}
-        self.assertIsNone(pick(devices, self.runtimes, 26))
+        self.assertIsNone(pick(devices, self.runtimes, (26,)))
 
 
 if __name__ == "__main__":
