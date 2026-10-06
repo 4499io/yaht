@@ -1,0 +1,38 @@
+# iOS 27 SDK validation
+
+Apple's [iOS and iPadOS 27 release notes](https://developer.apple.com/documentation/ios-ipados-release-notes/ios-ipados-27-release-notes) describe the launch-screen Info.plist requirement (168247372), scene lifecycle requirement (141837548), and `@State` macro source compatibility caveats (105893279). [Xcode 27 release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-27-release-notes) describe the bundled iOS 27 SDK. Recheck these living release notes against the installed Xcode build when validating.
+
+Yaht already generates `UILaunchScreen` and `UIApplicationSceneManifest` for Debug and Release, and its SwiftUI `App` uses `WindowGroup`. Validate the emitted app rather than assuming build settings prove compliance. The deployment target remains iOS 26; building with SDK 27 does not require dropping iOS 26 support.
+
+## Run on macOS
+
+Install/select a full Xcode 27 or later, Python 3, and an iOS 27 or later simulator runtime. Select Xcode with `DEVELOPER_DIR` if multiple versions are installed. Find an available simulator with `xcrun simctl list devices available` or `xcodebuild -project Yaht.xcodeproj -scheme Yaht -showdestinations`. Supply its UDID explicitly:
+
+```sh
+python3 scripts/validate_ios27.py 'platform=iOS Simulator,id=<installed-simulator-UDID>'
+```
+
+The script verifies macOS, Xcode major version, simulator SDK major version and the selected simulator's iOS runtime major version. It runs the existing `YahtTests` target in Debug, builds Release, and checks both emitted app plists for a launch-screen configuration (`UILaunchScreen`, `UILaunchScreens`, `UILaunchStoryboardName` or `UILaunchStoryboards`) and a scene manifest. Supply an available simulator's **UDID**, not an ambiguous device name. Run the existing CI test command separately against an iOS 26 simulator for backward compatibility if that runtime is available; this SDK validation script intentionally requires an iOS 27+ runtime.
+
+Every invocation creates a fresh directory under the system temporary directory, prints its location, and retains separate DerivedData directories, logs, `Tests.xcresult` and `test-summary.json` for review. Build output goes to the printed log files. A tool failure preserves its exit status. `xcresulttool get test-results summary` must report integer `totalTestCount`, `passedTests` and `failedTests`, at least one executed passing test, and zero failures. An unfamiliar summary schema fails validation and preserves the raw JSON for diagnosis; consult the installed tool's help before adapting the parser. No package or macro verification bypasses are enabled.
+
+For SDK 27.1 or later, the script passes the literal build setting `SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) YAHT_IOS27_1_SDK` to both configurations. This enables SDK-gated adaptive button-style code when present; runtime availability checks still protect earlier OS versions. SDK 27.0 and 26 must leave this condition unset. Swift compiler version alone does not establish SDK 27.1 API availability. For native Xcode builds with SDK 27.1+, append `YAHT_IOS27_1_SDK` to **Active Compilation Conditions** while retaining `$(inherited)` and existing conditions. Remove it when selecting an earlier SDK.
+
+Simulator builds disable signing; this check does not validate signed device entitlements, iCloud sync or App Store submission. It performs no deployment and requires no credentials. The current GitLab runner remains on Xcode 26 until an actual Xcode 27 runner is available; no speculative runner image is configured here.
+
+## State source audit and runtime regression matrix
+
+Current `@State` declarations use private named properties with explicit types or initial values. There are no access modifiers beyond `private`, multi-variable declarations, state-property observers, or custom wrapper declarations to rewrite speculatively. Two initialization sites explicitly construct state storage: `HabitEditView.init` initializes `_viewModel`; `YahtApp.init` initializes `_container` and `_store`. Compile these under the Xcode 27 compiler and investigate actual diagnostics before changing their initialization semantics. Existing Swift Testing suites cover habit logic, storage, notification trigger construction and color blending; they do not exercise SwiftUI state lifetime or presentation.
+
+Complete this matrix on iOS 27 and, where available, iOS 26. Record Xcode build, simulator/runtime version, device, results and relevant screenshots. Passing the script alone does not establish these behaviors.
+
+| Area / state | Regression check |
+| --- | --- |
+| App `_container`, `_store` | Cold launch with existing habits; verify records remain after background/foreground and relaunch. Confirm test startup uses the in-memory container and existing suites execute. |
+| List `showingEditor` | Open Add Habit from empty and populated lists; cancel, reopen, then save. The sheet must dismiss correctly and the list must update. |
+| Detail `showingEditor` | Open a habit, edit, cancel and reopen; save an edit and verify detail and list update. |
+| Editor `_viewModel` | Type a name/emoji; change color, habit kind, weekday schedule and reminders. Trigger view refresh and ensure unsaved edits remain. Cancel must preserve the original habit; save must persist the edited values. |
+| Scenes and launch screen | Cold launch Debug and Release; confirm a launch screen and usable initial scene. Background/foreground and reconnect the scene without losing navigation or data. |
+| SDK/runtime coexistence | Repeat critical launch, edit and persistence flows on iOS 26 when supported by the host Xcode installation. |
+
+This validation is prepared for macOS execution. Linux script/stub checks provide no evidence that Yaht builds or runs with Xcode 27.
