@@ -43,30 +43,40 @@ struct ScheduleSection: View {
         }
     }
 
+    /// Seven equal-width 44-point targets fill the row when they fit; at
+    /// larger Dynamic Type sizes or very narrow widths the row scrolls instead
+    /// of shrinking the targets.
     private var weekdayToggles: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(weekdays, id: \.weekday) { day in
-                    let selected = viewModel.isWeekdaySelected(day.weekday)
-                    Button {
-                        viewModel.toggleWeekday(day.weekday)
-                    } label: {
-                        Text(day.label)
-                            .font(.caption.weight(.semibold))
-                            .frame(minWidth: 44, minHeight: 44)
-                            .foregroundStyle(selected ? Cyberdream.textPrimary : Cyberdream.textSecondary)
-                            .background(
-                                selected ? AnyShapeStyle(viewModel.selectedColor) : AnyShapeStyle(.ultraThinMaterial),
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("habit-edit-weekday-\(day.weekday)")
-                    .accessibilityLabel(Text(Calendar.current.weekdaySymbols[day.weekday - 1]))
-                    .accessibilityAddTraits(selected ? [.isSelected] : [])
-                }
+        ViewThatFits(in: .horizontal) {
+            weekdayRow(fillsWidth: true)
+            ScrollView(.horizontal) {
+                weekdayRow(fillsWidth: false)
             }
-            .padding(.vertical, 4)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func weekdayRow(fillsWidth: Bool) -> some View {
+        HStack(spacing: 6) {
+            ForEach(weekdays, id: \.weekday) { day in
+                let selected = viewModel.isWeekdaySelected(day.weekday)
+                Button {
+                    viewModel.toggleWeekday(day.weekday)
+                } label: {
+                    Text(day.label)
+                        .font(.caption.weight(.semibold))
+                        .frame(minWidth: 44, maxWidth: fillsWidth ? .infinity : nil, minHeight: 44)
+                        .foregroundStyle(selected ? Cyberdream.textPrimary : Cyberdream.textSecondary)
+                        .background(
+                            selected ? AnyShapeStyle(viewModel.selectedColor) : AnyShapeStyle(.ultraThinMaterial),
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("habit-edit-weekday-\(day.weekday)")
+                .accessibilityLabel(Text(Calendar.current.weekdaySymbols[day.weekday - 1]))
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+            }
         }
     }
 }
