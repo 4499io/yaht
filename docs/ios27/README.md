@@ -32,7 +32,7 @@ image must be verified before replacing it.
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/4499io/yaht/issues/1) | P1 | Preserve database on startup failure | `fix/preserve-persistent-store` | `372b200`, `57860c8`, `738f33a`; five tests added, Apple validation pending |
 | [#2](https://github.com/4499io/yaht/issues/2) | P2 | Label and enlarge editor controls | `fix/habit-color-accessibility` | `6bc58ee`, `0e9c3ec`; Apple validation pending |
-| [#3](https://github.com/4499io/yaht/issues/3) | P2 | Reconcile/serialize device reminders | `fix/reconcile-reminders` | Implementation in progress |
+| [#3](https://github.com/4499io/yaht/issues/3) | P2 | Reconcile/serialize device reminders | `fix/reconcile-reminders` | `b5a86c9`, `98a109a`; 13 tests added, Apple validation pending |
 | [#4](https://github.com/4499io/yaht/issues/4) | P1 | Validate SDK 27 builds and generated metadata | `test/ios27-sdk-readiness` | `0a043a0`, `668ff0d`, `c3be522`; reproducible Linux validator tests pass, actual Xcode validation pending |
 | [#5](https://github.com/4499io/yaht/issues/5) | P1 | Avoid active hardware divisions on 27.1 | `feat/ios27-reserved-region-layout` | `dbda231`, `043a2d4`; 11 geometry tests added, Apple validation pending |
 
@@ -88,3 +88,25 @@ Apple-platform validation pass.
 The current GitHub account has `pull: true`, `push: false`. Creating issues
 works; publishing implementation branches is still blocked by repository write
 permission. No branches were force-pushed, merged, or deployed.
+
+## Prepared integration and checks
+
+`integration/ios27-upgrade` combines all five implementation branches and the
+research record in `/workspace/yaht-worktrees/ios27-integration`. No upstream
+changes were merged. New Apple-platform regressions comprise five persistence,
+thirteen notification reconciliation, and eleven free-rectangle cases; all
+29 are unrun here. The reproducible Python validator suite passed three test
+methods covering thirteen simulated command scenarios. Python syntax, project
+XML and whitespace checks passed on the combined worktree. Palette tokens and
+ordering remain unchanged. These checks do not establish app/SDK compatibility.
+
+Read-only reviews corrected async notification removal/identifier reuse,
+cancelled queued work, negative geometry handling, and recovery-screen adaptive
+layout coverage. A notification removal timeout defers further scheduling until
+the next foreground/data reconciliation event; validate this on a real device.
+
+On macOS, follow [the SDK validation guide](../IOS27_VALIDATION.md) and
+[adaptive layout guide](adaptive-layout.md). Use SDK 27.1+ with the explicit
+compilation condition and runtime 27.1+ to exercise hardware-division behavior;
+a test running on runtime 27.0 only checks the fallback. Run iOS 26 compatibility
+checks separately, including existing data and notification permissions.
