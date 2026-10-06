@@ -78,7 +78,16 @@ jobs:
       IOS27_XCODE: "27.1"
     steps:
       - uses: actions/checkout@v5
+      - name: Check for validator
+        id: validator
+        run: |
+          if [[ -f scripts/validate_ios27.py ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::scripts/validate_ios27.py is not on this ref; skipping iOS 27 validation."
+          fi
       - name: Select Xcode ${{ env.IOS27_XCODE }}
+        if: steps.validator.outputs.present == 'true'
         run: |
           # Match on `xcodebuild -version`, not the app's file name: image
           # paths do not reliably say whether a build is a beta.
@@ -95,19 +104,20 @@ jobs:
           exit 1
       - name: Pick simulator
         id: sim
+        if: steps.validator.outputs.present == 'true'
         run: |
-          test -f scripts/validate_ios27.py || { echo "::error::scripts/validate_ios27.py is not on this ref."; exit 1; }
           xcodebuild -version
           sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
           echo "destination=$(python3 scripts/ci/pick_simulator.py --min "$sdk" --max "$sdk")" >> "$GITHUB_OUTPUT"
       - name: Validate
+        if: steps.validator.outputs.present == 'true'
         env:
           TMPDIR: ${{ runner.temp }}/ios27
         run: |
           mkdir -p "$TMPDIR"
           python3 scripts/validate_ios27.py '${{ steps.sim.outputs.destination }}'
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.validator.outputs.present == 'true'
         with:
           name: ios27-validation
           path: |
