@@ -142,6 +142,74 @@ struct NotificationReconciliationTests {
         #expect(center.requests.count == 60)
     }
 
+    @Test func delayedCancellationFinishesBeforeTheSameIdentifierIsScheduledAgain() async {
+        let center = FakeNotificationCenter()
+        let scheduler = NotificationScheduler(center: center)
+        let habit = makeHabit(name: "Read", count: 1)
+        await scheduler.reschedule(for: habit)
+        let originalIDs = Set(center.requests.keys)
+        center.pauseNextRemoval = true
+        let cancelling = Task { await scheduler.cancel(forHabitID: habit.id) }
+        await center.waitForRemovalPause()
+        let rescheduling = Task { await scheduler.reschedule(for: habit) }
+        await Task.yield()
+        #expect(center.addAttempts == 1)
+        #expect(Set(center.requests.keys) == originalIDs)
+        center.resumeRemoval()
+        await cancelling.value
+        await rescheduling.value
+        #expect(Set(center.requests.keys) == originalIDs)
+        #expect(center.addAttempts == 2)
+    }
+
+    @Test func unchangedIdentifiersAreReplacedWithoutRemovingThem() async throws {
+        let center = FakeNotificationCenter()
+        let scheduler = NotificationScheduler(center: center)
+        let habit = makeHabit(name: "Before", count: 1)
+        await scheduler.reschedule(for: habit)
+        habit.name = "After"
+        await scheduler.rescheduleAll([habit])
+        let scheduled = try #require(center.requests.values.first)
+        #expect(scheduled.content.title == "📚 After")
+        #expect(center.removalCallCount == 0)
+    }
+
+    @Test func unconfirmedRemovalBlocksFutureReuseUntilItsCompletionIsObserved() async {
+        let center = FakeNotificationCenter()
+        let scheduler = NotificationScheduler(center: center)
+        let habit = makeHabit(name: "Read", count: 1)
+        await scheduler.reschedule(for: habit)
+        center.leaveRemovalUnconfirmed = true
+        await scheduler.cancel(forHabitID: habit.id)
+        await scheduler.reschedule(for: habit)
+        #expect(center.addAttempts == 1)
+        #expect(center.removalCallCount == 1)
+        center.finishUnconfirmedRemoval()
+        await scheduler.reschedule(for: habit)
+        #expect(center.addAttempts == 2)
+        #expect(center.requests.count == 1)
+    }
+
+    @Test func cancelledQueuedTaskCannotReconcileItsStaleSnapshot() async {
+        let center = FakeNotificationCenter()
+        let scheduler = NotificationScheduler(center: center)
+        let firstHabit = makeHabit(name: "Current", count: 1)
+        let staleHabit = makeHabit(name: "Cancelled", count: 1)
+        center.pauseNextPending = true
+        let first = Task { await scheduler.reschedule(for: firstHabit) }
+        await center.waitForPendingPause()
+        let stale = Task { await scheduler.rescheduleAll([staleHabit]) }
+        await Task.yield()
+        stale.cancel()
+        center.resumePendingRead()
+        await first.value
+        await stale.value
+        #expect(center.pendingReadCount == 1)
+        #expect(center.removalCallCount == 0)
+        #expect(center.requests.count == 1)
+        #expect(center.requests.values.first?.content.title == "📚 Current")
+    }
+
     private func makeHabit(name: String, count: Int) -> Habit {
         let habit = Habit(name: name, emoji: "📚")
         habit.reminders = (0..<count).map { _ in Reminder(hour: 9, minute: 30, habit: habit) }
@@ -165,6 +233,13 @@ private final class FakeNotificationCenter: NotificationCenterClient {
     var peakPendingCount = 0
     var pauseNextPending = false
     var failNextAdd = false
+    var pauseNextRemoval = false
+    var leaveRemovalUnconfirmed = false
+    var removalCallCount = 0
+    private var removalIsPaused = false
+    private var removalObservers: [CheckedContinuation<Void, Never>] = []
+    private var removalContinuation: CheckedContinuation<Void, Never>?
+    private var unconfirmedIDs: Set<String> = []
     private var isPaused = false
     private var pausedObservers: [CheckedContinuation<Void, Never>] = []
     private var pendingContinuation: CheckedContinuation<Void, Never>?
@@ -215,7 +290,43 @@ private final class FakeNotificationCenter: NotificationCenterClient {
         peakPendingCount = max(peakPendingCount, requests.count)
     }
 
-    func removePendingRequests(withIdentifiers identifiers: [String]) {
+    func removePendingRequests(withIdentifiers identifiers: [String]) async -> Bool {
+        removalCallCount += 1
+        if leaveRemovalUnconfirmed {
+            unconfirmedIDs.formUnion(identifiers)
+            return false
+        }
+        if pauseNextRemoval {
+            pauseNextRemoval = false
+            await withCheckedContinuation { continuation in
+                removalContinuation = continuation
+                removalIsPaused = true
+                for observer in removalObservers { observer.resume() }
+                removalObservers.removeAll()
+            }
+            removalIsPaused = false
+        }
         for id in identifiers { requests.removeValue(forKey: id) }
+        return true
+    }
+
+    func waitUntilRemoved(_ identifiers: Set<String>) async -> Bool {
+        identifiers.isDisjoint(with: requests.keys)
+    }
+
+    func waitForRemovalPause() async {
+        guard !removalIsPaused else { return }
+        await withCheckedContinuation { removalObservers.append($0) }
+    }
+
+    func resumeRemoval() {
+        removalContinuation?.resume()
+        removalContinuation = nil
+    }
+
+    func finishUnconfirmedRemoval() {
+        for id in unconfirmedIDs { requests.removeValue(forKey: id) }
+        unconfirmedIDs.removeAll()
+        leaveRemovalUnconfirmed = false
     }
 }
