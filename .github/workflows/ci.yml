@@ -41,7 +41,9 @@ jobs:
           xcrun --sdk iphonesimulator --show-sdk-version
       - name: Pick simulator
         id: sim
-        run: echo "destination=$(python3 scripts/ci/pick_simulator.py --min 26 --max 26)" >> "$GITHUB_OUTPUT"
+        run: |
+          destination=$(python3 scripts/ci/pick_simulator.py --min 26 --max 26)
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Test
         run: |
           set -o pipefail
@@ -108,7 +110,9 @@ jobs:
         run: |
           xcodebuild -version
           sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
-          echo "destination=$(python3 scripts/ci/pick_simulator.py --min "$sdk" --max "$sdk")" >> "$GITHUB_OUTPUT"
+          # Any iOS 27 runtime the selected SDK can run; the newest wins.
+          destination=$(python3 scripts/ci/pick_simulator.py --min 27 --max "$sdk")
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Validate
         if: steps.validator.outputs.present == 'true'
         env:

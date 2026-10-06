@@ -10,7 +10,8 @@ struct YahtApp: App {
     // target lightweight and deterministic (the host app must not crash).
     private let isRunningTests: Bool = YahtApp.detectTests()
 
-    private enum StartupState {
+    // fileprivate: `loadStartup` in the file-private extension below returns it.
+    fileprivate enum StartupState {
         case ready(ModelContainer, HabitStore?)
         case failed
     }

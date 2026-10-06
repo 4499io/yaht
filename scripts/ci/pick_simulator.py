@@ -60,11 +60,23 @@ def main(argv=None):
     parser.add_argument("--min", type=parse_version, required=True, help="e.g. 26 or 27.1")
     parser.add_argument("--max", type=parse_version, help="e.g. 26 or 27.1")
     args = parser.parse_args(argv)
-    choice = pick(simctl_json("devices", "available"), simctl_json("runtimes"), args.min, args.max)
+    devices, runtimes = simctl_json("devices", "available"), simctl_json("runtimes")
+    choice = pick(devices, runtimes, args.min, args.max)
     if choice is None:
+        # Name what is installed so a runner-image change is diagnosable from the log.
+        for runtime in runtimes.get("runtimes", []):
+            iphones = sum(
+                device.get("name", "").startswith("iPhone")
+                for device in devices.get("devices", {}).get(runtime.get("identifier", ""), [])
+            )
+            print(
+                f"  {runtime.get('identifier')} version={runtime.get('version')} "
+                f"available={runtime.get('isAvailable')} iphones={iphones}",
+                file=sys.stderr,
+            )
         show = lambda version: ".".join(map(str, version))
         bound = show(args.min) + (f" to {show(args.max)}" if args.max else "+")
-        print(f"No available iPhone simulator with an iOS {bound} runtime.", file=sys.stderr)
+        print(f"No available iPhone simulator with an iOS {bound} runtime (installed runtimes above).", file=sys.stderr)
         return 1
     version, device = choice
     print(f"Selected {device['name']} (iOS {'.'.join(map(str, version))})", file=sys.stderr)
