@@ -1,0 +1,43 @@
+name: TestFlight
+
+# Manual deploy, replacing GitLab's `deploy:testflight` job. Triggers the
+# Xcode Cloud "yaht default" workflow (archive + sign + build number + upload)
+# via scripts/asc, so signing and upload stay with Xcode Cloud.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   ASC_AUTH_KEY   — contents of the App Store Connect .p8 key
+#   ASC_KEY_ID     — the key ID
+#   ASC_ISSUER_ID  — the issuer ID
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    name: Trigger Xcode Cloud build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install PyJWT
+        # scripts/asc calls python3 for JWT signing; the system Python is
+        # externally managed, so put a venv first on PATH.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ascvenv"
+          "$RUNNER_TEMP/ascvenv/bin/pip" install --quiet pyjwt cryptography
+          echo "$RUNNER_TEMP/ascvenv/bin" >> "$GITHUB_PATH"
+      - name: Trigger
+        env:
+          ASC_AUTH_KEY_CONTENT: ${{ secrets.ASC_AUTH_KEY }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          # scripts/asc reads ASC_AUTH_KEY as a path to the .p8 file.
+          export ASC_AUTH_KEY="$RUNNER_TEMP/AuthKey.p8"
+          umask 077
+          printf '%s\n' "$ASC_AUTH_KEY_CONTENT" > "$ASC_AUTH_KEY"
+          ./scripts/asc trigger "$GITHUB_REF_NAME"

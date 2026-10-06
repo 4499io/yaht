@@ -35,7 +35,7 @@ set -euo pipefail
 KEY_ID="${ASC_KEY_ID:-8BRH9K8J5T}"
 ISSUER_ID="${ASC_ISSUER_ID:-f3b5c284-ea1b-4fb7-8e81-5d8a69389cc4}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-# ASC_AUTH_KEY is a GitLab File-type variable: its value is the path to the .p8 on the runner.
+# ASC_AUTH_KEY is the path to the .p8 on the runner (written from a secret by .github/workflows/testflight.yml).
 KEY_FILE="${ASC_AUTH_KEY:-$SCRIPT_DIR/AuthKey_$KEY_ID.p8}"
 # App-level for yaht.
 APP_ID="6789257705"
