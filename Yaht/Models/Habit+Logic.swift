@@ -39,8 +39,20 @@ extension Habit {
         }
     }
 
+    /// The pause covering `date`, if the habit is paused that day.
+    func pause(covering date: Date, calendar: Calendar = .current) -> HabitPause? {
+        (pauses ?? []).first { $0.contains(date, calendar: calendar) }
+    }
+
+    /// Whether the habit is paused on `date`.
+    func isPaused(on date: Date, calendar: Calendar = .current) -> Bool {
+        pause(covering: date, calendar: calendar) != nil
+    }
+
     /// Whether the habit is scheduled to be done on `date`, per `scheduleKind`.
+    /// Paused days are never due.
     func isDue(on date: Date, calendar: Calendar = .current) -> Bool {
+        guard !isPaused(on: date, calendar: calendar) else { return false }
         switch schedule {
         case .daily:
             return true

@@ -14,6 +14,8 @@ struct NotificationHabitSnapshot: Hashable, Sendable {
     let title: String
     let soundName: String?
     let isArchived: Bool
+    /// Paused today: reminders are held back until the pause ends.
+    let isPaused: Bool
     let reminders: [ReminderSnapshot]
 
     @MainActor
@@ -22,7 +24,8 @@ struct NotificationHabitSnapshot: Hashable, Sendable {
         title = "\(habit.emoji) \(habit.name)"
         soundName = habit.soundName
         isArchived = habit.isArchived
-        reminders = (habit.reminders ?? []).filter(\.isEnabled).map {
+        isPaused = habit.isPaused(on: Date())
+        reminders = isPaused ? [] : (habit.reminders ?? []).filter(\.isEnabled).map {
             ReminderSnapshot(id: $0.id, hour: $0.hour, minute: $0.minute, scope: $0.reminderScope)
         }.sorted { $0.id.uuidString < $1.id.uuidString }
     }

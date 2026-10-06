@@ -42,7 +42,7 @@ enum PersistentStoreLoader {
             create: true
         )
         let url = base.appendingPathComponent("Yaht.sqlite")
-        let schema = Schema(versionedSchema: SchemaV1.self)
+        let schema = Schema(versionedSchema: CurrentSchema.self)
         return try load(at: url) { storeURL, mode in
             let configuration = ModelConfiguration(
                 schema: schema,
@@ -60,7 +60,7 @@ enum PersistentStoreLoader {
     /// Tests alone use a throwaway store. Failed production startup never
     /// creates a writable in-memory session that could silently lose entries.
     static func makeTestContainer() throws -> ModelContainer {
-        let schema = Schema(versionedSchema: SchemaV1.self)
+        let schema = Schema(versionedSchema: CurrentSchema.self)
         let configuration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: true,

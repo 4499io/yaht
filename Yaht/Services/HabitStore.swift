@@ -76,6 +76,38 @@ final class HabitStore: HabitStoreProtocol {
         persist()
     }
 
+    // MARK: - Pauses
+
+    /// Longest pause, in days.
+    static let maxPauseDays = 90
+
+    /// Pauses `habit` from `start` through `end` (both included, at most
+    /// ``maxPauseDays`` days).
+    func pause(_ habit: Habit, from start: Date, through end: Date) {
+        let first = calendar.startOfDay(for: start)
+        let requested = calendar.startOfDay(for: max(start, end))
+        let longest = calendar.date(byAdding: .day, value: Self.maxPauseDays - 1, to: first) ?? requested
+        let pause = HabitPause(start: first, end: min(requested, longest), habit: habit)
+        modelContext.insert(pause)
+        persist()
+    }
+
+    /// Ends the habit's pause from `today` on: pauses that have not started yet
+    /// are removed, and a running one now ends yesterday. Past pauses stay, so
+    /// streaks keep treating those weeks as paused.
+    func resume(_ habit: Habit, today: Date = Date()) {
+        let today = calendar.startOfDay(for: today)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        for pause in habit.pauses ?? [] {
+            if calendar.startOfDay(for: pause.start) >= today {
+                modelContext.delete(pause)
+            } else if calendar.startOfDay(for: pause.end) >= today {
+                pause.end = yesterday
+            }
+        }
+        persist()
+    }
+
     /// Moves habits still using the pre-Gruvbox palette to the matching Gruvbox
     /// color, archived ones included. Returns how many habits changed.
     @discardableResult
