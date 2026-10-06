@@ -52,8 +52,8 @@ enum UsableContentRegion {
 
     private static func isValid(_ rect: CGRect) -> Bool {
         rect.origin.x.isFinite && rect.origin.y.isFinite
-            && rect.width.isFinite && rect.height.isFinite
-            && rect.width > 0 && rect.height > 0
+            && rect.size.width.isFinite && rect.size.height.isFinite
+            && rect.size.width > 0 && rect.size.height > 0
             && rect.maxX.isFinite && rect.maxY.isFinite
             && (rect.width * rect.height).isFinite
     }

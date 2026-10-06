@@ -23,11 +23,12 @@ the condition only when the selected SDK is at least 27.1.
 
 For native Xcode 27.1+ builds, add `YAHT_IOS27_1_SDK` to **Active Compilation
 Conditions** for the app target, preserving existing conditions. For direct
-`xcodebuild` validation, pass:
+`xcodebuild` validation, replace the destination placeholder with an installed
+iOS 27.1+ simulator UDID and pass:
 
 ```sh
 xcodebuild test -project Yaht.xcodeproj -scheme Yaht \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -destination 'platform=iOS Simulator,id=<INSTALLED-27.1-UDID>' \
   'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) YAHT_IOS27_1_SDK'
 ```
 
