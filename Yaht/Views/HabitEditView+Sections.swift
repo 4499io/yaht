@@ -62,6 +62,7 @@ struct ScheduleSection: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("habit-edit-weekday-\(day.weekday)")
+                    .accessibilityLabel(Text(Calendar.current.weekdaySymbols[day.weekday - 1]))
                     .accessibilityAddTraits(selected ? [.isSelected] : [])
                 }
             }
