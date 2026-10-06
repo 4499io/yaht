@@ -116,8 +116,10 @@ docs/  (maestro/  observability/  — optional)
 **App entry (`App/*.swift`) — PATTERN, high value:**
 - Build `ModelContainer` in a `@State` closure with an **explicit store URL** in Application Support,
   a `migrationPlan`, and an `excludeFromBackup()` helper marking `.sqlite`/`-shm`/`-wal` excluded.
-- **Move-aside recovery:** on container init failure, never delete the store — rename it aside and
-  rescue rows to JSON. (99issues `StoreRecoveryService` idea; adapt lightly.)
+- **Preserve the existing store on startup failure:** a CloudKit or SDK error does not establish
+  corruption. Try an explicitly local (`cloudKitDatabase: .none`) container at the same URL.
+  If both attempts fail, keep the database and sidecars in place and offer Retry; never silently
+  replace the store or accept new entries in a volatile in-memory session.
 - **`isRunningTests` guard:** checks `XCTestBundlePath`/`XCTestSessionIdentifier`; renders `Color.clear`
   and skips service startup under test — keeps unit tests from booting the whole app. COPY.
 - Set `UNUserNotificationCenter.current().delegate` in `init()`.

@@ -112,8 +112,11 @@ enum AppMigrationPlan: SchemaMigrationPlan {
     static var stages: [MigrationStage] { [] }
 }
 ```
-`Models/AppSchema.swift`. ModelContainer built in `YahtApp` with explicit store URL in Application
-Support, `cloudKitDatabase: .automatic`, backup-exclude + move-aside recovery.
+`Models/AppSchema.swift`. `PersistentStoreLoader` opens the explicit store URL in Application
+Support with `cloudKitDatabase: .automatic`, then retries the same URL with `.none` if startup
+fails. Neither attempt renames or deletes the database or its sidecars. If both fail, `YahtApp`
+shows a blocking error screen with Retry, preserving the existing data for recovery. Writable
+in-memory containers are reserved for tests; production does not silently lose newly entered data.
 
 ## Service layer
 
