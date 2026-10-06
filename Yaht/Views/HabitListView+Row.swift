@@ -60,7 +60,7 @@ struct HabitRowView: View {
             return String(localized: "\(week.completed) of \(week.required) this week")
         }
         if let goal = habit.goalSummary { return goal }
-        if !habit.isDue(on: day) { return String(localized: "Not due today") }
+        if !habit.isDue(on: day) { return String(localized: "Not due") }
         return habit.scheduleSummary
     }
 }

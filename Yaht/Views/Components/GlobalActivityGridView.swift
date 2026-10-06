@@ -52,27 +52,64 @@ struct GlobalActivityGridView: View {
         }
     }
 
+    /// Cells size themselves to the card's width (square, equal columns), so
+    /// the grid fills the card edge to edge on every screen size.
     private var grid: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: ActivityStyle.cellSpacing) {
-                ForEach(0..<weeks, id: \.self) { column in
-                    VStack(spacing: ActivityStyle.cellSpacing) {
-                        ForEach(0..<7, id: \.self) { row in
-                            cellView(cells[column * 7 + row])
-                        }
+        Grid(horizontalSpacing: ActivityStyle.cellSpacing, verticalSpacing: ActivityStyle.cellSpacing) {
+            ForEach(0..<7, id: \.self) { row in
+                GridRow {
+                    ForEach(0..<weeks, id: \.self) { column in
+                        cellView(cells[column * 7 + row])
                     }
                 }
             }
-            .padding(.vertical, 2)
+            GridRow {
+                ForEach(monthLabels) { month in
+                    Text(month.title)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textTertiary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        // Too narrow to read when a month only touches 1–2 weeks.
+                        .opacity(month.weeks >= 3 ? 1 : 0)
+                        .padding(.top, 2)
+                        .accessibilityHidden(true)
+                        .gridCellColumns(month.weeks)
+                }
+            }
         }
-        .defaultScrollAnchor(.trailing)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Activity, last \(weeks) weeks")
+        .accessibilityValue("\(checkIns) check-ins")
         .accessibilityIdentifier("global-activity-grid")
     }
 
     private func cellView(_ cell: DayCell) -> some View {
         RoundedRectangle(cornerRadius: ActivityStyle.cornerRadius, style: .continuous)
             .fill(fill(for: cell))
-            .frame(width: ActivityStyle.cellSize, height: ActivityStyle.cellSize)
+            .aspectRatio(1, contentMode: .fit)
+    }
+
+    /// Runs of week columns by the month their first day falls in.
+    private struct MonthLabel: Identifiable {
+        let id: Int
+        let title: String
+        let weeks: Int
+    }
+
+    private var monthLabels: [MonthLabel] {
+        let calendar = Calendar.current
+        var labels: [MonthLabel] = []
+        for column in 0..<weeks {
+            let date = cells[column * 7].date
+            let month = calendar.component(.month, from: date)
+            if let last = labels.last, calendar.component(.month, from: cells[last.id * 7].date) == month {
+                labels[labels.count - 1] = MonthLabel(id: last.id, title: last.title, weeks: last.weeks + 1)
+            } else {
+                labels.append(MonthLabel(id: column, title: date.formatted(.dateTime.month(.abbreviated)), weeks: 1))
+            }
+        }
+        return labels
     }
 
     private func fill(for cell: DayCell) -> Color {
