@@ -10,6 +10,7 @@ final class NotificationScheduler: NotificationScheduling {
 
     private let logger = Logger(subsystem: "io.yaht.Yaht", category: "notifications")
     private let center: any NotificationCenterClient
+    private var unconfirmedRemovalIDs: Set<String> = []
     private var busy = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
@@ -20,7 +21,9 @@ final class NotificationScheduler: NotificationScheduling {
     func requestAuthorization() async -> Bool {
         await acquire()
         defer { release() }
+        guard !Task.isCancelled else { return false }
         let status = await center.authorizationStatus()
+        guard !Task.isCancelled else { return false }
         guard status == .notDetermined else { return Self.canSchedule(status) }
         do {
             return try await center.requestAuthorization(options: [.alert, .sound, .badge])
@@ -66,22 +69,54 @@ final class NotificationScheduler: NotificationScheduling {
     private func replace(with snapshots: [NotificationHabitSnapshot], scope: Scope) async {
         await acquire()
         defer { release() }
+        guard !Task.isCancelled else { return }
+        // A timed-out removal can still finish later. Never reuse its IDs until
+        // their absence has been observed, even in a subsequent transaction.
+        if !unconfirmedRemovalIDs.isEmpty {
+            guard await center.waitUntilRemoved(unconfirmedRemovalIDs) else { return }
+            unconfirmedRemovalIDs.removeAll()
+        }
+        guard !Task.isCancelled else { return }
         let status = await center.authorizationStatus()
+        guard !Task.isCancelled else { return }
         let pending = await center.pendingRequests()
-        let stale = pending.filter { scope.includes($0.identifier) }.map(\.identifier)
-        if !stale.isEmpty { center.removePendingRequests(withIdentifiers: stale) }
-        guard Self.canSchedule(status) else { return }
-
+        guard !Task.isCancelled else { return }
         let retainedCount = pending.filter { !scope.includes($0.identifier) }.count
-        var remaining = max(0, Self.pendingBudget - retainedCount)
-        // Stable ordering gives the same habits priority on every reconciliation.
+        let capacity = max(0, Self.pendingBudget - retainedCount)
+        let desired = Self.canSchedule(status) ? requests(for: snapshots) : []
+        let keptIDs = Set(desired.prefix(capacity).map(\.identifier))
+        let scopedIDs = Set(pending.filter { scope.includes($0.identifier) }.map(\.identifier))
+        let staleIDs = scopedIDs.subtracting(keptIDs)
+        if !staleIDs.isEmpty {
+            unconfirmedRemovalIDs.formUnion(staleIDs)
+            guard await center.removePendingRequests(withIdentifiers: Array(staleIDs)) else {
+                logger.error("Notification removal did not finish; deferring scheduling.")
+                return
+            }
+            unconfirmedRemovalIDs.subtract(staleIDs)
+        }
+        guard !Task.isCancelled else { return }
+        var occupiedIDs = scopedIDs.intersection(keptIDs)
+        for request in desired {
+            guard !Task.isCancelled else { return }
+            // Existing IDs are replaced directly by add(), never remove/add.
+            // Failed replacements still occupy a slot; failed new additions do
+            // not consume capacity, allowing the next reminder to use it.
+            if !occupiedIDs.contains(request.identifier) && occupiedIDs.count >= capacity { continue }
+            do {
+                try await center.add(request)
+                occupiedIDs.insert(request.identifier)
+            } catch {
+                logger.error("Failed to add notification: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    private func requests(for snapshots: [NotificationHabitSnapshot]) -> [UNNotificationRequest] {
+        var result: [UNNotificationRequest] = []
         for habit in snapshots.sorted(by: { $0.id.uuidString < $1.id.uuidString }) where !habit.isArchived {
             for reminder in habit.reminders {
                 for weekday in Self.weekdays(for: reminder.scope) {
-                    guard remaining > 0 else {
-                        logger.notice("Pending-request budget reached; skipping remaining reminders.")
-                        return
-                    }
                     var components = DateComponents()
                     components.hour = reminder.hour
                     components.minute = reminder.minute
@@ -91,20 +126,15 @@ final class NotificationScheduler: NotificationScheduling {
                     content.sound = habit.soundName.map {
                         UNNotificationSound(named: UNNotificationSoundName($0))
                     } ?? .default
-                    let request = UNNotificationRequest(
+                    result.append(UNNotificationRequest(
                         identifier: Self.identifier(habitID: habit.id, reminderID: reminder.id, weekday: weekday),
                         content: content,
                         trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-                    )
-                    do {
-                        try await center.add(request)
-                        remaining -= 1
-                    } catch {
-                        logger.error("Failed to add notification: \(error.localizedDescription, privacy: .public)")
-                    }
+                    ))
                 }
             }
         }
+        return result
     }
 
     private static func canSchedule(_ status: UNAuthorizationStatus) -> Bool {

@@ -8,7 +8,7 @@ protocol NotificationScheduling: Sendable {
     /// Requests alert/sound/badge authorization. Returns `false` on denial or error.
     func requestAuthorization() async -> Bool
 
-    /// Cancels the habit's pending requests, then schedules one repeating
+    /// Replaces current requests and removes obsolete ones, with one repeating
     /// calendar trigger per enabled reminder (fanned out by scope).
     func reschedule(for habit: Habit) async
 

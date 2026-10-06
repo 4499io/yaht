@@ -7,7 +7,10 @@ protocol NotificationCenterClient {
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
     func pendingRequests() async -> [UNNotificationRequest]
     func add(_ request: UNNotificationRequest) async throws
-    func removePendingRequests(withIdentifiers identifiers: [String])
+    func waitUntilRemoved(_ identifiers: Set<String>) async -> Bool
+    /// Returns true only after the IDs are observed absent. On false, callers
+    /// must defer reuse and recheck readiness without issuing another removal.
+    func removePendingRequests(withIdentifiers identifiers: [String]) async -> Bool
 }
 
 @MainActor
@@ -30,7 +33,26 @@ final class SystemNotificationCenterClient: NotificationCenterClient {
         try await center.add(request)
     }
 
-    func removePendingRequests(withIdentifiers identifiers: [String]) {
+    func removePendingRequests(withIdentifiers identifiers: [String]) async -> Bool {
         center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        return await waitUntilRemoved(Set(identifiers))
+    }
+}
+
+@MainActor
+extension NotificationCenterClient {
+    /// The system removal call queues work and has no completion callback.
+    /// Observe readiness instead of assuming a delay is long enough. Finish this
+    /// bounded barrier even if the caller is cancelled after removal began.
+    func waitUntilRemoved(_ identifiers: Set<String>) async -> Bool {
+        guard !identifiers.isEmpty else { return true }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        repeat {
+            let pending = await pendingRequests()
+            if pending.allSatisfy({ !identifiers.contains($0.identifier) }) { return true }
+            await Task.yield()
+        } while clock.now < deadline
+        return false
     }
 }
