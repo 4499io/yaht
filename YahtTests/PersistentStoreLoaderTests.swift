@@ -68,6 +68,83 @@ struct PersistentStoreLoaderTests {
         #expect(try second.mainContext.fetchCount(FetchDescriptor<Habit>()) == 0)
     }
 
+    /// Exercises an actual local SQLite store. The cloud attempt is deliberately
+    /// stubbed; compatibility with a CloudKit-backed store needs device testing.
+    @Test func localFallbackReopensExistingHabitsAndLogs() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: directory)
+            } catch {
+                Issue.record("Could not clean up the temporary SwiftData store: \(error)")
+            }
+        }
+        let url = directory.appendingPathComponent("Yaht.sqlite")
+        let habitID = UUID()
+        let logID = UUID()
+        let day = Date(timeIntervalSince1970: 1_700_000_000)
+
+        // Separate scopes and autorelease pools release the original container,
+        // context, and models before reopening and before deleting the directory.
+        try autoreleasepool {
+            try seedLocalStore(at: url, habitID: habitID, logID: logID, day: day)
+        }
+        #expect(FileManager.default.fileExists(atPath: url.path))
+        try autoreleasepool {
+            try verifyLocalFallback(at: url, habitID: habitID, logID: logID, day: day)
+        }
+    }
+
+    private func makeLocalContainer(at url: URL) throws -> ModelContainer {
+        let schema = Schema(versionedSchema: SchemaV1.self)
+        let configuration = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)
+        return try ModelContainer(
+            for: schema,
+            migrationPlan: AppMigrationPlan.self,
+            configurations: [configuration]
+        )
+    }
+
+    private func seedLocalStore(at url: URL, habitID: UUID, logID: UUID, day: Date) throws {
+        let container = try makeLocalContainer(at: url)
+        let habit = Habit(id: habitID, name: "Drink water", kind: .count, dailyTarget: 5, unit: "glasses")
+        let log = HabitLog(id: logID, day: day, count: 3, updatedAt: day, habit: habit)
+        container.mainContext.insert(habit)
+        container.mainContext.insert(log)
+        try container.mainContext.save()
+    }
+
+    private func verifyLocalFallback(at url: URL, habitID: UUID, logID: UUID, day: Date) throws {
+        var attempts: [PersistentStoreLoader.Mode] = []
+        let container = try PersistentStoreLoader.load(at: url) { attemptedURL, mode in
+            #expect(attemptedURL == url)
+            attempts.append(mode)
+            if mode == .cloud { throw StubError.cloudUnavailable }
+            return try makeLocalContainer(at: attemptedURL)
+        }
+        #expect(attempts == [.cloud, .local])
+        let habits = try container.mainContext.fetch(FetchDescriptor<Habit>())
+        let logs = try container.mainContext.fetch(FetchDescriptor<HabitLog>())
+        #expect(habits.count == 1)
+        #expect(logs.count == 1)
+        let habit = try #require(habits.first)
+        let log = try #require(logs.first)
+        #expect(habit.id == habitID)
+        #expect(habit.name == "Drink water")
+        #expect(habit.habitKind == .count)
+        #expect(habit.dailyTarget == 5)
+        #expect(habit.unit == "glasses")
+        #expect(log.id == logID)
+        #expect(log.day == day)
+        #expect(log.updatedAt == day)
+        #expect(log.count == 3)
+        #expect(log.habit?.id == habitID)
+        #expect(habit.logs?.map(\.id) == [logID])
+        #expect(habit.dayCount(on: day) == 3)
+    }
+
     private func withStoreFiles(
         _ body: (URL, [String: Data]) throws -> Void
     ) throws {
