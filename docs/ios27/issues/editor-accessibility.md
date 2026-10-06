@@ -20,3 +20,9 @@ color choices meaningfully and narrow layouts have small touch targets.
 
 Implementation branch: `fix/habit-color-accessibility`.
 Remote issue: https://github.com/4499io/yaht/issues/2
+
+## Implementation progress
+
+Implementation prepared locally on `fix/habit-color-accessibility` (`6bc58ee`, `0e9c3ec`): named colors, full localized weekday labels, and 44-point targets. Palette tokens and ordering unchanged. VoiceOver, Dynamic Type and build validation remain unrun.
+
+Branches remain local: upstream push permission is absent, and GitHub integration denied fork creation. Issue remains open pending acceptance checks.

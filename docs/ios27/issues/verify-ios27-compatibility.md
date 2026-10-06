@@ -37,3 +37,9 @@ Implementation branch: `test/ios27-sdk-readiness`.
 This Linux environment cannot execute Apple-platform checks.
 
 Remote issue: https://github.com/4499io/yaht/issues/4
+
+## Implementation progress
+
+Validator prepared locally on `test/ios27-sdk-readiness` (latest `c3be522`). Run `python3 scripts/validate_ios27.py "platform=iOS Simulator,id=<UDID>"` on macOS. Reproducible Python tests pass: three methods exercise thirteen tool scenarios, metadata requirements, SDK gating and zero-test/error rejection. These are simulated tool checks, not actual Xcode builds. SDK27.1 enables `YAHT_IOS27_1_SDK` automatically; test adaptive behavior on runtime27.1 as well.
+
+Branches remain local: upstream push permission is absent, and GitHub integration denied fork creation. Issue remains open pending acceptance checks.
