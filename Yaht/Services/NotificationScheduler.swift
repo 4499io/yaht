@@ -45,7 +45,7 @@ final class NotificationScheduler: NotificationScheduling {
     /// Authoritative reconciliation also clears reminders for deleted or
     /// archived habits. Requests outside our identifier namespace are retained.
     func rescheduleAll(_ habits: [Habit]) async {
-        let snapshots = habits.map(NotificationHabitSnapshot.init)
+        let snapshots = habits.map { NotificationHabitSnapshot($0) }
         await reconcile(snapshots)
     }
 
