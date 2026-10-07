@@ -111,7 +111,7 @@ struct RemindersSection: View {
     var body: some View {
         Section {
             ForEach($viewModel.reminders) { $reminder in
-                ReminderRow(reminder: $reminder) {
+                ReminderRow(reminder: $reminder, followsHabitDays: viewModel.scheduleKind == .specificWeekdays) {
                     viewModel.removeReminder(id: reminder.id)
                 }
             }
@@ -132,6 +132,9 @@ struct RemindersSection: View {
 /// A single editable reminder draft row; its bin button removes it.
 private struct ReminderRow: View {
     @Binding var reminder: ReminderDraft
+    /// "Some days" habits remind only on their chosen days, so the reminder's
+    /// own day choice is hidden.
+    let followsHabitDays: Bool
     let onRemove: () -> Void
 
     var body: some View {
@@ -164,13 +167,19 @@ private struct ReminderRow: View {
                 .accessibilityIdentifier("habit-edit-reminder-remove")
             }
 
-            Picker("Days", selection: $reminder.scope) {
-                Text("Every day").tag(ReminderScope.everyDay)
-                Text("Weekdays").tag(ReminderScope.weekdaysOnly)
-                Text("Weekends").tag(ReminderScope.weekendsOnly)
+            if followsHabitDays {
+                Text("On the habit's days")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textTertiary)
+            } else {
+                Picker("Days", selection: $reminder.scope) {
+                    Text("Every day").tag(ReminderScope.everyDay)
+                    Text("Weekdays").tag(ReminderScope.weekdaysOnly)
+                    Text("Weekends").tag(ReminderScope.weekendsOnly)
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("habit-edit-reminder-scope")
             }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("habit-edit-reminder-scope")
         }
         .padding(.vertical, 4)
     }

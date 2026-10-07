@@ -25,6 +25,17 @@ struct NotificationSchedulerTests {
         #expect(weekdays == [1, 7])
     }
 
+    @Test func someDaysHabitsUseTheirDaysWhateverTheReminderScope() {
+        #expect(NotificationScheduler.reminderWeekdays(scope: .everyDay, habitWeekdays: [5]) == [5])
+        #expect(NotificationScheduler.reminderWeekdays(scope: .weekendsOnly, habitWeekdays: [6, 2]) == [2, 6])
+        #expect(NotificationScheduler.reminderWeekdays(scope: .everyDay, habitWeekdays: []).isEmpty)
+    }
+
+    @Test func otherHabitsFollowTheReminderScope() {
+        #expect(NotificationScheduler.reminderWeekdays(scope: .everyDay, habitWeekdays: nil) == [nil])
+        #expect(NotificationScheduler.reminderWeekdays(scope: .weekendsOnly, habitWeekdays: nil) == [1, 7])
+    }
+
     // MARK: Identifier format
 
     @Test func identifierEncodesWeekday() throws {

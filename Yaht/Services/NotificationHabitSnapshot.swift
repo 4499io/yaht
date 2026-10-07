@@ -16,6 +16,9 @@ struct NotificationHabitSnapshot: Hashable, Sendable {
     let isArchived: Bool
     /// Paused today: reminders are held back until the pause ends.
     let isPaused: Bool
+    /// Calendar weekdays (1 = Sunday … 7 = Saturday) a "some days" habit is
+    /// scheduled on; its reminders fire only then. `nil` for other schedules.
+    let scheduledWeekdays: [Int]?
     let reminders: [ReminderSnapshot]
 
     @MainActor
@@ -25,6 +28,9 @@ struct NotificationHabitSnapshot: Hashable, Sendable {
         soundName = habit.soundName
         isArchived = habit.isArchived
         isPaused = habit.isPaused(on: Date())
+        scheduledWeekdays = habit.schedule == .specificWeekdays
+            ? (1...7).filter { habit.scheduleDaysMask & (1 << ($0 - 1)) != 0 }
+            : nil
         reminders = isPaused ? [] : (habit.reminders ?? []).filter(\.isEnabled).map {
             ReminderSnapshot(id: $0.id, hour: $0.hour, minute: $0.minute, scope: $0.reminderScope)
         }.sorted { $0.id.uuidString < $1.id.uuidString }
