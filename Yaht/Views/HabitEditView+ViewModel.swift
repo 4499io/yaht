@@ -11,12 +11,20 @@ struct ReminderDraft: Identifiable, Hashable {
     var time: Date
     var scope: ReminderScope
     var isEnabled: Bool
+    var repeatsHourly: Bool
 
-    init(id: UUID = UUID(), time: Date, scope: ReminderScope = .everyDay, isEnabled: Bool = true) {
+    init(
+        id: UUID = UUID(),
+        time: Date,
+        scope: ReminderScope = .everyDay,
+        isEnabled: Bool = true,
+        repeatsHourly: Bool = false
+    ) {
         self.id = id
         self.time = time
         self.scope = scope
         self.isEnabled = isEnabled
+        self.repeatsHourly = repeatsHourly
     }
 
     /// Snapshot an existing reminder into an editable draft.
@@ -25,6 +33,7 @@ struct ReminderDraft: Identifiable, Hashable {
         self.time = ReminderDraft.date(hour: reminder.hour, minute: reminder.minute)
         self.scope = reminder.reminderScope
         self.isEnabled = reminder.isEnabled
+        self.repeatsHourly = reminder.repeatsHourly
     }
 
     var hour: Int { Calendar.current.component(.hour, from: time) }
@@ -181,6 +190,7 @@ final class HabitEditViewModel {
                 match.minute = draft.minute
                 match.reminderScope = draft.scope
                 match.isEnabled = draft.isEnabled
+                match.repeatsHourly = draft.repeatsHourly
                 kept.append(match)
             } else {
                 let reminder = Reminder(
@@ -189,6 +199,7 @@ final class HabitEditViewModel {
                     minute: draft.minute,
                     scope: draft.scope,
                     isEnabled: draft.isEnabled,
+                    repeatsHourly: draft.repeatsHourly,
                     habit: habit
                 )
                 modelContext.insert(reminder)

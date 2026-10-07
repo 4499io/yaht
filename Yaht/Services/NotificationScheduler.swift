@@ -112,29 +112,58 @@ final class NotificationScheduler: NotificationScheduling {
         }
     }
 
+    /// Weekly reminders for every habit come first, then hourly nudges
+    /// earliest first, so a full budget drops the furthest nudges.
     private func requests(for snapshots: [NotificationHabitSnapshot]) -> [UNNotificationRequest] {
+        let calendar = Calendar.current
+        let now = Date()
         var result: [UNNotificationRequest] = []
+        var nudges: [(date: Date, request: UNNotificationRequest)] = []
         for habit in snapshots.sorted(by: { $0.id.uuidString < $1.id.uuidString }) where !habit.isArchived {
             for reminder in habit.reminders {
-                for weekday in Self.reminderWeekdays(scope: reminder.scope, habitWeekdays: habit.scheduledWeekdays) {
+                let weekdays = Self.reminderWeekdays(scope: reminder.scope, habitWeekdays: habit.scheduledWeekdays)
+                for weekday in weekdays {
                     var components = DateComponents()
                     components.hour = reminder.hour
                     components.minute = reminder.minute
                     if let weekday { components.weekday = weekday }
-                    let content = UNMutableNotificationContent()
-                    content.title = habit.title
-                    content.sound = habit.soundName.map {
-                        UNNotificationSound(named: UNNotificationSoundName($0))
-                    } ?? .default
                     result.append(UNNotificationRequest(
                         identifier: Self.identifier(habitID: habit.id, reminderID: reminder.id, weekday: weekday),
-                        content: content,
+                        content: makeContent(for: habit),
                         trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
                     ))
                 }
+                guard reminder.repeatsHourly else { continue }
+                let dates = Self.nudgeDates(
+                    hour: reminder.hour,
+                    minute: reminder.minute,
+                    weekdays: weekdays,
+                    days: habit.nudgeDays,
+                    now: now,
+                    calendar: calendar
+                )
+                for date in dates {
+                    let content = makeContent(for: habit)
+                    content.body = String(localized: "Still to do today.")
+                    let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+                    nudges.append((date, UNNotificationRequest(
+                        identifier: Self.nudgeIdentifier(habitID: habit.id, reminderID: reminder.id, date: date, calendar: calendar),
+                        content: content,
+                        trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                    )))
+                }
             }
         }
-        return result
+        return result + nudges.sorted { $0.date < $1.date }.map(\.request)
+    }
+
+    private func makeContent(for habit: NotificationHabitSnapshot) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = habit.title
+        content.sound = habit.soundName.map {
+            UNNotificationSound(named: UNNotificationSoundName($0))
+        } ?? .default
+        return content
     }
 
     private static func canSchedule(_ status: UNAuthorizationStatus) -> Bool {
