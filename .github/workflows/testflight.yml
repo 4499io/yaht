@@ -72,6 +72,15 @@ jobs:
         env:
           ASC_WAIT_TIMEOUT: "3900"
         run: ./scripts/asc wait "${{ steps.trigger.outputs.number }}"
+      - name: Report Xcode Cloud and TestFlight status
+        if: always() && steps.trigger.outputs.number != ''
+        continue-on-error: true
+        # Which build reached TestFlight, and whether Apple has finished
+        # processing it, so a missing build or icon can be traced from here.
+        run: |
+          ./scripts/asc build-status "${{ steps.trigger.outputs.number }}"
+          echo
+          ./scripts/asc testflight
       - name: Report Xcode Cloud issues
         if: failure() && steps.trigger.outputs.number != ''
         run: |

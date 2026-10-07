@@ -25,6 +25,14 @@ extension NotificationScheduler {
         }
     }
 
+    /// The weekdays a reminder fires on. A habit scheduled on specific days
+    /// fires only on those days, whatever the reminder's own scope; other
+    /// habits follow the reminder's scope.
+    nonisolated static func reminderWeekdays(scope: ReminderScope, habitWeekdays: [Int]?) -> [Int?] {
+        guard let habitWeekdays else { return weekdays(for: scope) }
+        return habitWeekdays.sorted().map { Optional($0) }
+    }
+
     /// Stable request identifier: `habit-<habitID>-<reminderID>-<weekday-or-daily>`.
     /// A `nil` weekday renders as `daily`.
     nonisolated static func identifier(

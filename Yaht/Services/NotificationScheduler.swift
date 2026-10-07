@@ -116,7 +116,7 @@ final class NotificationScheduler: NotificationScheduling {
         var result: [UNNotificationRequest] = []
         for habit in snapshots.sorted(by: { $0.id.uuidString < $1.id.uuidString }) where !habit.isArchived {
             for reminder in habit.reminders {
-                for weekday in Self.weekdays(for: reminder.scope) {
+                for weekday in Self.reminderWeekdays(scope: reminder.scope, habitWeekdays: habit.scheduledWeekdays) {
                     var components = DateComponents()
                     components.hour = reminder.hour
                     components.minute = reminder.minute

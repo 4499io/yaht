@@ -210,6 +210,24 @@ struct NotificationReconciliationTests {
         #expect(center.requests.values.first?.content.title == "📚 Current")
     }
 
+    @Test func someDaysHabitRemindsOnlyOnItsDays() async throws {
+        let center = FakeNotificationCenter()
+        let scheduler = NotificationScheduler(center: center)
+        // Thursday only (weekday 5), with an "every day" reminder.
+        let gym = makeHabit(name: "Gym", count: 1)
+        gym.schedule = .specificWeekdays
+        gym.scheduleDaysMask = 1 << 4
+
+        await scheduler.rescheduleAll([gym])
+
+        let requests = Array(center.requests.values)
+        #expect(requests.count == 1)
+        let trigger = try #require(requests.first?.trigger as? UNCalendarNotificationTrigger)
+        #expect(trigger.dateComponents.weekday == 5)
+        #expect(trigger.dateComponents.hour == 9)
+        #expect(trigger.dateComponents.minute == 30)
+    }
+
     private func makeHabit(name: String, count: Int) -> Habit {
         let habit = Habit(name: name, emoji: "📚")
         habit.reminders = (0..<count).map { _ in Reminder(hour: 9, minute: 30, habit: habit) }
