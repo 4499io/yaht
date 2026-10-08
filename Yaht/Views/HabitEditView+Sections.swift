@@ -104,7 +104,7 @@ struct ScheduleSection: View {
     }
 }
 
-/// Reminder list: time, scope and enable toggle per row, with add/delete.
+/// Reminder list: time, scope, enable and hourly toggles per row, with add/delete.
 struct RemindersSection: View {
     @Bindable var viewModel: HabitEditViewModel
 
@@ -180,6 +180,14 @@ private struct ReminderRow: View {
                 .pickerStyle(.menu)
                 .accessibilityIdentifier("habit-edit-reminder-scope")
             }
+
+            Toggle(isOn: $reminder.repeatsHourly) {
+                Text("Every hour until done")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .disabled(!reminder.isEnabled)
+            .accessibilityIdentifier("habit-edit-reminder-hourly")
         }
         .padding(.vertical, 4)
     }

@@ -18,7 +18,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        let snapshots = habits.map(NotificationHabitSnapshot.init).sorted { $0.id.uuidString < $1.id.uuidString }
+        let snapshots = habits.map { NotificationHabitSnapshot($0) }.sorted { $0.id.uuidString < $1.id.uuidString }
         let key = ReconciliationKey(
             isActive: scenePhase == .active,
             snapshots: snapshots,
