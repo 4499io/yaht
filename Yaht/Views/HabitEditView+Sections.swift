@@ -2,17 +2,18 @@ import SwiftUI
 
 /// Schedule configuration: pick a ``ScheduleKind`` and its dependent controls.
 struct ScheduleSection: View {
+    @Environment(\.dynamicTypeSize) private var textSize
     @Bindable var viewModel: HabitEditViewModel
 
     /// Calendar weekday order (1 = Sunday ... 7 = Saturday) with short labels.
-    private let weekdays: [(weekday: Int, label: String)] = [
-        (1, "Sun"), (2, "Mon"), (3, "Tue"), (4, "Wed"),
-        (5, "Thu"), (6, "Fri"), (7, "Sat")
-    ]
+    private var weekdays: [Int] {
+        let first = Calendar.current.firstWeekday
+        return (0..<7).map { (first - 1 + $0) % 7 + 1 }
+    }
 
     var body: some View {
-        Section("When") {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+        Section {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: textSize >= .xxxLarge ? 1 : 2), spacing: 8) {
                 chip(.daily, "Every day")
                 chip(.specificWeekdays, "Some days")
                 chip(.timesPerWeek, "Times a week")
@@ -41,6 +42,13 @@ struct ScheduleSection: View {
                 )
                 .accessibilityIdentifier("habit-edit-weekly-target")
             }
+        } header: {
+            Text("When")
+        } footer: {
+            if viewModel.scheduleKind == .specificWeekdays && !viewModel.hasSelectedWeekdays {
+                Text("Choose at least one day to save this schedule.")
+                    .foregroundStyle(Theme.textPrimary)
+            }
         }
         .listRowBackground(Theme.surface)
     }
@@ -50,10 +58,17 @@ struct ScheduleSection: View {
         return Button {
             viewModel.scheduleKind = kind
         } label: {
-            Text(title)
+            HStack(spacing: 6) {
+                Text(title)
+                    .fixedSize(horizontal: false, vertical: true)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .accessibilityHidden(true)
+                }
+            }
                 .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .foregroundStyle(isSelected ? Theme.onAccent(viewModel.colorHex) : Theme.textPrimary)
                 .background(
@@ -81,12 +96,12 @@ struct ScheduleSection: View {
 
     private func weekdayRow(fillsWidth: Bool) -> some View {
         HStack(spacing: 6) {
-            ForEach(weekdays, id: \.weekday) { day in
-                let selected = viewModel.isWeekdaySelected(day.weekday)
+            ForEach(weekdays, id: \.self) { day in
+                let selected = viewModel.isWeekdaySelected(day)
                 Button {
-                    viewModel.toggleWeekday(day.weekday)
+                    viewModel.toggleWeekday(day)
                 } label: {
-                    Text(day.label)
+                    Text(Calendar.current.shortStandaloneWeekdaySymbols[day - 1])
                         .font(.caption.weight(.semibold))
                         .frame(minWidth: 44, maxWidth: fillsWidth ? .infinity : nil, minHeight: 44)
                         .foregroundStyle(selected ? Theme.onAccent(viewModel.colorHex) : Theme.textSecondary)
@@ -96,8 +111,8 @@ struct ScheduleSection: View {
                         )
                 }
                 .buttonStyle(.borderless)
-                .accessibilityIdentifier("habit-edit-weekday-\(day.weekday)")
-                .accessibilityLabel(Text(Calendar.current.weekdaySymbols[day.weekday - 1]))
+                .accessibilityIdentifier("habit-edit-weekday-\(day)")
+                .accessibilityLabel(Text(Calendar.current.weekdaySymbols[day - 1]))
                 .accessibilityAddTraits(selected ? [.isSelected] : [])
             }
         }
@@ -210,7 +225,8 @@ private struct SettingRow<Control: View>: View {
     @ViewBuilder let control: Control
 
     var body: some View {
-        HStack(spacing: 10) {
+        AdaptiveStack(spacing: 10) {
+            HStack(spacing: 10) {
             Image(systemName: systemImage)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.textTertiary)
@@ -218,9 +234,9 @@ private struct SettingRow<Control: View>: View {
             Text(title)
                 .font(.subheadline)
                 .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-            Spacer(minLength: 8)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             control
         }
         .frame(minHeight: 32)

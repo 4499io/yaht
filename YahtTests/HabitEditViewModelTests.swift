@@ -4,6 +4,30 @@ import Testing
 
 @MainActor
 struct HabitEditViewModelTests {
+    @Test func anEmptyWeekdayScheduleCannotBeSaved() {
+        let viewModel = HabitEditViewModel(habit: nil)
+        viewModel.name = "Walk"
+        viewModel.scheduleKind = .specificWeekdays
+        viewModel.scheduleDaysMask = 0
+        #expect(!viewModel.canSave)
+        viewModel.toggleWeekday(2)
+        #expect(viewModel.canSave)
+        viewModel.toggleWeekday(2)
+        #expect(!viewModel.canSave)
+    }
+
+    @Test func otherSchedulesDoNotRequireWeekdaySelection() {
+        let viewModel = HabitEditViewModel(habit: nil)
+        viewModel.name = "Read"
+        viewModel.scheduleDaysMask = 0
+        for schedule in [ScheduleKind.daily, .everyNDays, .timesPerWeek] {
+            viewModel.scheduleKind = schedule
+            #expect(viewModel.canSave)
+        }
+        viewModel.name = "   "
+        #expect(!viewModel.canSave)
+    }
+
     @Test func removeReminderByIDKeepsTheOthers() {
         let viewModel = HabitEditViewModel(habit: nil)
         viewModel.addReminder()
