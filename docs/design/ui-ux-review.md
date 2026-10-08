@@ -25,7 +25,7 @@ habit palette and existing persistence, scheduling, and migration behavior.
 | Past-day context | Ring speaks "today" when another day is selected; rest days show 0/0. | Spoken summary includes the actual date; rest days show a dash and a rest-day label. Habits created after the selected day do not appear in that day's list or summary. |
 | Check-in affordance | Empty rings have no visible action icon; count undo is hidden behind long press. | Added an unfilled check affordance, count undo/reset VoiceOver actions, and a visible Undo one control on count-habit detail. Count buttons continue to say Add one after the goal is reached. |
 | Contrast | `Theme.background` on Plum is about 3.87:1, below normal-text contrast. | Black/white foreground selection uses sRGB relative luminance; all ten palette fills meet 4.5:1. Translucent custom colors are composited over the card surface. Palette tokens remain unchanged. |
-| Selection | Color and tracking choices rely heavily on hue or outlines. | Selected colors, tracking modes, and schedules show explicit checkmarks as well as selected accessibility traits. |
+| Selection | Color and tracking choices rely heavily on hue or outlines. | Selected colors, tracking modes, and schedules show explicit checkmarks as well as selected accessibility traits; cards strengthen their borders with Increase Contrast. |
 | Editor feedback | Empty-name Save is disabled without an explanation; a zero-day schedule can be saved. | Inline guidance explains both states; Some days requires a valid selected weekday. |
 | Weekday ordering | Editor uses hard-coded English labels and Sunday-first order. | Labels and ordering now follow the current calendar. |
 | History semantics | Calendar labels future, pre-creation, paused, and off-schedule days as Not done. | Distinct spoken statuses, goal-day terminology, and a brief explanation of calendar and activity-grid encoding. |
@@ -40,8 +40,9 @@ habit palette and existing persistence, scheduling, and migration behavior.
   developer scripts, not the SwiftUI app.
 - Added 9 Swift tests: 4 contrast, 3 calendar-state, and 2 editor validation
   cases. They require the Apple test runner and are not executed on Linux.
-- Reviewed source changes and checked whitespace, Python syntax, asset JSON,
-  and Xcode scheme/workspace XML. No schema, project build setting, deployment
+- Reviewed source changes; all 20 changed Swift files pass tree-sitter syntax
+  parsing. Also checked whitespace, Python syntax, asset JSON, and Xcode
+  scheme/workspace XML. Parsing does not type-check Apple APIs. No schema, project build setting, deployment
   target, dependency, or icon changes are included.
 - PR CI must compile the app and run its full Swift suite before approval.
   Passing script tests alone does not establish application readiness.
