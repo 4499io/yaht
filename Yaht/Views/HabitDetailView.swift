@@ -11,6 +11,7 @@ enum HabitRemoval {
 /// check-in button, a month calendar and lifetime numbers. "Edit" opens the
 /// editor; deleting or archiving there closes this screen first.
 struct HabitDetailView: View {
+    @ScaledMetric(relativeTo: .body) private var weekRingSize: CGFloat = 64
     @Environment(HabitStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     private let habit: Habit
@@ -30,7 +31,7 @@ struct HabitDetailView: View {
         ScrollView {
             VStack(spacing: 18) {
                 header
-                HStack(spacing: 10) {
+                AdaptiveStack(spacing: 10) {
                     streakCard(streak)
                     weekCard(week)
                 }
@@ -40,10 +41,10 @@ struct HabitDetailView: View {
                 Card(padding: 16) {
                     MonthCalendarView(habit: habit)
                 }
-                HStack(spacing: 10) {
+                AdaptiveStack(spacing: 10) {
                     numberTile("\(streak.best)", caption: "best streak, weeks")
-                    numberTile("\(stats.last30Percent)%", caption: "last 30 days")
-                    numberTile("\(stats.totalCompleted)", caption: "check-ins")
+                    numberTile("\(stats.last30Percent)%", caption: "days completed, last 30")
+                    numberTile("\(stats.totalCompleted)", caption: "days completed")
                 }
                 .fixedSize(horizontal: false, vertical: true)
             }
@@ -76,7 +77,7 @@ struct HabitDetailView: View {
             HabitTile(emoji: habit.emoji, color: habit.color, size: 64)
             VStack(alignment: .leading, spacing: 4) {
                 Text(habit.name.isEmpty ? "Untitled" : habit.name)
-                    .font(.rounded(30, weight: .heavy))
+                    .roundedFont(30, weight: .heavy)
                     .foregroundStyle(Theme.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                 Text(subtitle)
@@ -95,7 +96,7 @@ struct HabitDetailView: View {
                     .font(.footnote)
                     .foregroundStyle(Theme.textTertiary)
                 Text("\(streak.current)")
-                    .font(.rounded(44, weight: .heavy))
+                    .roundedFont(44, weight: .heavy)
                     .monospacedDigit()
                     .foregroundStyle(habit.color)
                 Text(streak.current == 1 ? "week in a row" : "weeks in a row")
@@ -109,15 +110,18 @@ struct HabitDetailView: View {
 
     private func weekCard(_ week: WeekGoal) -> some View {
         Card(cornerRadius: 22, padding: 16) {
-            HStack(spacing: 12) {
+            AdaptiveStack(spacing: 12) {
                 ZStack {
                     ProgressRing(progress: week.fraction, color: habit.color, lineWidth: 8)
                     Text(week.isNeutral ? "–" : "\(week.completed)/\(week.required)")
-                        .font(.rounded(16, weight: .heavy))
+                        .roundedFont(16, weight: .heavy)
                         .monospacedDigit()
                         .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .padding(8)
                 }
-                .frame(width: 64, height: 64)
+                .frame(width: min(weekRingSize, 120), height: min(weekRingSize, 120))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("This week")
                         .font(.footnote)
@@ -147,7 +151,7 @@ struct HabitDetailView: View {
         Card(cornerRadius: 18, padding: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(value)
-                    .font(.rounded(24, weight: .heavy))
+                    .roundedFont(24, weight: .heavy)
                     .monospacedDigit()
                     .foregroundStyle(Theme.textPrimary)
                 Text(caption)
@@ -193,21 +197,44 @@ private struct CheckInButton: View {
     let day: Date
 
     var body: some View {
+        VStack(spacing: 8) {
+            checkIn
+            if habit.habitKind == .count {
+                Button {
+                    store.increment(habit, on: day, by: -1)
+                } label: {
+                    Label("Undo one", systemImage: "minus.circle")
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .disabled(habit.dayCount(on: day) == 0)
+                .accessibilityIdentifier("habit-detail-undo-one")
+            }
+        }
+    }
+
+    private var checkIn: some View {
         let done = habit.isCompleted(on: day)
-        Button {
+        return Button {
             switch habit.habitKind {
             case .binary: store.toggleCompletion(for: habit, on: day)
             case .count: store.increment(habit, on: day, by: 1)
             }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: habit.habitKind == .count && !done ? "plus" : "checkmark")
+                Image(systemName: habit.habitKind == .count ? "plus" : "checkmark")
                     .font(.system(size: 17, weight: .heavy))
                 Text(label(done: done))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
             }
-            .font(.rounded(17))
+            .roundedFont(17)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: 56)
-            .foregroundStyle(done ? habit.color : Theme.onAccent)
+            .foregroundStyle(done ? habit.color : Theme.onAccent(habit.colorHex))
             .background(done ? Color.clear : habit.color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -218,6 +245,7 @@ private struct CheckInButton: View {
         .buttonStyle(.plain)
         .sensoryFeedback(.success, trigger: done) { _, isDone in isDone }
         .accessibilityHint(habit.habitKind == .binary && done ? Text("Double-tap to undo") : Text(""))
+        .accessibilityValue(done ? Text("Daily goal reached") : Text("Daily goal in progress"))
         .accessibilityIdentifier("habit-detail-check-in")
     }
 
@@ -227,16 +255,28 @@ private struct CheckInButton: View {
             return done ? String(localized: "Done today") : String(localized: "Check in today")
         case .count:
             let progress = "\(habit.dayCount(on: day))/\(max(habit.dailyTarget, 1))"
-            return done ? String(localized: "Done today · \(progress)") : String(localized: "Add one · \(progress)")
+            return String(localized: "Add one · \(progress)")
         }
     }
 }
 
-#Preview {
-    NavigationStack {
-        HabitDetailView(habit: Habit(name: "Read", emoji: "📚", colorHex: Theme.habitPaletteHex[2]))
+#Preview("Count habit") {
+    let fixture = try! PreviewHabits()
+    return NavigationStack {
+        HabitDetailView(habit: fixture.habits[0])
     }
+    .environment(fixture.store)
+    .modelContainer(fixture.container)
     .preferredColorScheme(.dark)
+}
+
+#Preview("Detail · Accessibility text") {
+    let fixture = try! PreviewHabits()
+    return NavigationStack { HabitDetailView(habit: fixture.habits[1]) }
+        .environment(fixture.store)
+        .modelContainer(fixture.container)
+        .environment(\.dynamicTypeSize, .accessibility3)
+        .preferredColorScheme(.dark)
 }
 
 /// Pause a habit for illness or a holiday, or resume it. Paused days are not
@@ -252,7 +292,7 @@ private struct PauseControl: View {
     var body: some View {
         let calendar = Calendar.current
         if let pause = habit.pause(covering: today) {
-            HStack(spacing: 12) {
+            AdaptiveStack(spacing: 12) {
                 Image(systemName: "pause.circle.fill")
                     .font(.title2)
                     .foregroundStyle(habit.color)
@@ -265,10 +305,11 @@ private struct PauseControl: View {
                         .font(.caption)
                         .foregroundStyle(Theme.textTertiary)
                 }
-                Spacer(minLength: 8)
                 Button("Resume") { store.resume(habit, today: today) }
                     .font(.subheadline.weight(.semibold))
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .frame(minHeight: 44)
                     .tint(habit.color)
                     .accessibilityIdentifier("habit-detail-resume")
             }

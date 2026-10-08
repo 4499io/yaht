@@ -79,7 +79,11 @@ final class HabitEditViewModel {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    var canSave: Bool { !trimmedName.isEmpty }
+    var hasSelectedWeekdays: Bool { scheduleDaysMask & 0x7F != 0 }
+
+    var canSave: Bool {
+        !trimmedName.isEmpty && (scheduleKind != .specificWeekdays || hasSelectedWeekdays)
+    }
 
     /// The currently chosen habit color, resolved from ``colorHex``.
     var selectedColor: Color { Color(hex: colorHex) ?? .accentColor }

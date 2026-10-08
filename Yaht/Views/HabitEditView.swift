@@ -130,19 +130,25 @@ private struct BasicsSection: View {
     @Bindable var viewModel: HabitEditViewModel
 
     var body: some View {
-        Section("Name") {
+        Section {
             TextField("e.g. Read 10 pages", text: $viewModel.name)
-                .font(.rounded(22))
+                .roundedFont(22)
                 .textInputAutocapitalization(.sentences)
                 .accessibilityLabel("Name")
                 .accessibilityIdentifier("habit-edit-name")
             colorPicker
+        } header: {
+            Text("Name and color")
+        } footer: {
+            if viewModel.trimmedName.isEmpty {
+                Text("Give your habit a name to save it.")
+            }
         }
         .listRowBackground(Theme.surface)
     }
 
     private var colorPicker: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 5), spacing: 6) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: 4)], spacing: 6) {
             ForEach(Theme.habitColors, id: \.hex) { color in
                 let hex = color.hex
                 let fill = Color(hex: hex) ?? .accentColor
@@ -153,6 +159,13 @@ private struct BasicsSection: View {
                     Circle()
                         .fill(fill)
                         .frame(width: 34, height: 34)
+                        .overlay {
+                            if isSelected {
+                                Image(systemName: "checkmark")
+                                    .font(.body.weight(.bold))
+                                    .foregroundStyle(Theme.onAccent(hex))
+                            }
+                        }
                         .padding(4)
                         .overlay {
                             Circle().strokeBorder(isSelected ? fill : .clear, lineWidth: 2.5)
@@ -176,7 +189,7 @@ private struct KindSection: View {
 
     var body: some View {
         Section("Track") {
-            HStack(spacing: 8) {
+            AdaptiveStack(spacing: 8) {
                 option(.binary, title: "Yes or no", subtitle: "Done once a day")
                 option(.count, title: "Count", subtitle: "Glasses, pages, minutes")
             }
@@ -202,13 +215,21 @@ private struct KindSection: View {
         return Button {
             viewModel.kind = kind
         } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(isSelected ? viewModel.selectedColor : Theme.textPrimary)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(Theme.textTertiary)
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(isSelected ? viewModel.selectedColor : Theme.textPrimary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(viewModel.selectedColor)
+                        .accessibilityHidden(true)
+                }
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .padding(12)

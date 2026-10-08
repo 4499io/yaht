@@ -49,19 +49,19 @@ struct StarterHabitsView: View {
                             lineWidth: 14
                         )
                         Text("yaht")
-                            .font(.rounded(34, weight: .heavy))
+                            .roundedFont(34, weight: .heavy)
                             .foregroundStyle(Theme.textPrimary)
                     }
                     .frame(width: 148, height: 148)
                     .accessibilityHidden(true)
 
                     VStack(spacing: 8) {
-                        Text("Start with one small habit")
-                            .font(.rounded(28, weight: .heavy))
+                        Text("Your routine starts here")
+                            .roundedFont(28, weight: .heavy)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Theme.textPrimary)
                             .accessibilityAddTraits(.isHeader)
-                        Text("Pick a few to begin. Each one gets its own color and fills a piece of your daily ring.")
+                        Text("Pick the habits that fit your day, or create your own. You can change them anytime.")
                             .font(.subheadline)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Theme.textSecondary)
@@ -76,32 +76,52 @@ struct StarterHabitsView: View {
                     }
                 }
 
-                VStack(spacing: 8) {
-                    Button(action: addPicked) {
-                        Text(picked.isEmpty ? "Pick at least one" : "Add \(picked.count) habits")
-                            .font(.rounded(17))
-                            .frame(maxWidth: .infinity, minHeight: 56)
-                            .foregroundStyle(picked.isEmpty ? Theme.textTertiary : Theme.background)
-                            .background(
-                                picked.isEmpty ? Theme.raised : Theme.textPrimary,
-                                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(picked.isEmpty)
-                    .accessibilityIdentifier("habit-list-empty-add-button")
-
-                    Button("Create my own instead", action: onCreateOwn)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(minHeight: 44)
-                        .accessibilityIdentifier("starter-create-own")
-                }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            actions
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+                .background(Theme.background)
+                .overlay(alignment: .top) { Divider() }
+        }
+    }
+
+    private var actions: some View {
+        VStack(spacing: 4) {
+            Button(action: addPicked) {
+                Text(addTitle)
+                    .roundedFont(17)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .foregroundStyle(picked.isEmpty ? Theme.textTertiary : Theme.onAccent("FE8019"))
+                    .background(
+                        picked.isEmpty ? Theme.raised : Theme.tint,
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(picked.isEmpty)
+            .accessibilityIdentifier("habit-list-empty-add-button")
+
+            Button("Create my own instead", action: onCreateOwn)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("starter-create-own")
+        }
+    }
+
+    private var addTitle: LocalizedStringKey {
+        if picked.isEmpty { return "Choose a habit to begin" }
+        if picked.count == 1 { return "Add 1 habit" }
+        return "Add \(picked.count) habits"
     }
 
     private func starterRow(_ starter: Starter) -> some View {
@@ -128,12 +148,13 @@ struct StarterHabitsView: View {
                     if isOn {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(Theme.onAccent)
+                            .foregroundStyle(Theme.onAccent(starter.colorHex))
                     }
                 }
                 .frame(width: 24, height: 24)
             }
             .padding(.horizontal, 14)
+            .padding(.vertical, 10)
             .frame(minHeight: 60)
             .background(isOn ? color.opacity(0.12) : Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
@@ -143,6 +164,9 @@ struct StarterHabitsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(starter.name))
+        .accessibilityValue(Text(starter.note))
         .accessibilityAddTraits(isOn ? [.isSelected] : [])
         .accessibilityIdentifier("starter-\(starter.id)")
     }
@@ -164,4 +188,12 @@ struct StarterHabitsView: View {
             store.create(habit)
         }
     }
+}
+
+#Preview("First run") {
+    let fixture = try! PreviewHabits(populated: false)
+    return NavigationStack { StarterHabitsView {} }
+        .environment(fixture.store)
+        .modelContainer(fixture.container)
+        .preferredColorScheme(.dark)
 }

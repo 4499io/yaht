@@ -4,29 +4,28 @@ import SwiftUI
 /// A habit row on Today: identity tile, name and a short note, the last seven
 /// days, and the check button. Tapping anywhere but the button opens the detail.
 struct HabitRowView: View {
+    @Environment(\.dynamicTypeSize) private var textSize
     let habit: Habit
     let day: Date
 
     var body: some View {
         let done = habit.isCompleted(on: day)
-        HStack(spacing: 12) {
+        AdaptiveStack(spacing: 12) {
             NavigationLink {
                 HabitDetailView(habit: habit)
             } label: {
                 HStack(spacing: 12) {
                     HabitTile(emoji: habit.emoji, color: habit.color)
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(habit.name.isEmpty ? "Untitled" : habit.name)
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                            Text(note)
-                                .font(.footnote)
-                                .foregroundStyle(Theme.textTertiary)
-                                .lineLimit(1)
-                        }
-                        HStack(spacing: 8) {
+                        Text(habit.name.isEmpty ? "Untitled" : habit.name)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(textSize.isAccessibilitySize ? nil : 2)
+                        Text(note)
+                            .font(.footnote)
+                            .foregroundStyle(Theme.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        AdaptiveStack(spacing: 8) {
                             LastSevenDays(habit: habit, day: day)
                             StreakBadge(weeks: habit.weeklyStreak(today: day).current, color: habit.color)
                         }
@@ -36,6 +35,7 @@ struct HabitRowView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("habit-row-\(habit.id.uuidString)")
 
             HabitCheckButton(habit: habit, day: day)
@@ -76,7 +76,7 @@ private struct StreakBadge: View {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 10, weight: .bold))
                 Text("\(weeks)w")
-                    .font(.rounded(12, weight: .heavy))
+                    .roundedFont(12, weight: .heavy)
                     .monospacedDigit()
             }
             .foregroundStyle(color)
@@ -101,9 +101,11 @@ private struct LastSevenDays: View {
                 let progress = habit.progress(on: date, calendar: calendar)
                 Capsule()
                     .fill(progress >= 1 ? habit.color : (progress > 0 ? habit.color.opacity(0.5) : Theme.track))
-                    .frame(width: 18, height: 5)
+                    .frame(minWidth: 6, maxWidth: 18)
+                    .frame(height: 5)
             }
         }
+        .frame(maxWidth: 150)
         .accessibilityElement()
         .accessibilityLabel("Done \(done) of the last 7 days")
     }
@@ -116,6 +118,7 @@ private struct LastSevenDays: View {
 /// habit's color as progress grows and becomes a solid check when done.
 struct HabitCheckButton: View {
     @Environment(HabitStore.self) private var store
+    @ScaledMetric(relativeTo: .body) private var controlScale: CGFloat = 1
     let habit: Habit
     let day: Date
     var diameter: CGFloat = 40
@@ -123,27 +126,33 @@ struct HabitCheckButton: View {
     var body: some View {
         let progress = habit.progress(on: day)
         let done = progress >= 1
-        Button(action: tap) {
+        let size = min(diameter * controlScale, 88)
+        return Button(action: tap) {
             ZStack {
                 if done {
                     Circle().fill(habit.color)
                     Image(systemName: "checkmark")
-                        .font(.system(size: diameter * 0.4, weight: .heavy))
-                        .foregroundStyle(Theme.onAccent)
+                        .font(.system(size: size * 0.4, weight: .heavy))
+                        .foregroundStyle(Theme.onAccent(habit.colorHex))
                 } else {
                     ProgressRing(progress: progress, color: habit.color, lineWidth: 3)
                     if habit.habitKind == .count {
                         Text("\(habit.dayCount(on: day))/\(max(habit.dailyTarget, 1))")
-                            .font(.rounded(diameter * 0.3, weight: .heavy))
+                            .font(.system(size: size * 0.3, weight: .heavy, design: .rounded))
                             .monospacedDigit()
-                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.3)
                             .foregroundStyle(habit.color)
                             .padding(4)
+                    } else {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: size * 0.35, weight: .semibold))
+                            .foregroundStyle(habit.color)
                     }
                 }
             }
-            .frame(width: diameter, height: diameter)
-            .frame(width: max(diameter + 12, 44), height: max(diameter + 12, 44))
+            .frame(width: size, height: size)
+            .frame(width: max(size + 12, 44), height: max(size + 12, 44))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -156,6 +165,12 @@ struct HabitCheckButton: View {
         }
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
+        .accessibilityActions {
+            if habit.habitKind == .count {
+                Button("Undo one") { store.increment(habit, on: day, by: -1) }
+                Button("Reset count") { store.setCount(habit, on: day, to: 0) }
+            }
+        }
         .accessibilityIdentifier(
             habit.habitKind == .count ? "habit-increment-\(habit.id.uuidString)" : "habit-complete-\(habit.id.uuidString)"
         )

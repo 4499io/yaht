@@ -32,14 +32,16 @@ enum Theme {
     /// Disabled and future content (`bg3`).
     static let textDisabled = color(textDisabledHex)
     /// Text and icons drawn on a filled habit color.
-    static let onAccent = background
+    static func onAccent(_ hex: String) -> Color {
+        color(AccentContrast.foregroundHex(on: hex))
+    }
 
     // MARK: - Accents
 
     /// Destructive actions (bright red).
     static let danger = color("FB4934")
-    /// App tint for system controls (bright aqua).
-    static let tint = color("8EC07C")
+    /// The app's amber signature; each habit retains its own chosen accent.
+    static let tint = color("FE8019")
 
     // MARK: - Habit palette
 

@@ -36,16 +36,25 @@ struct GlobalActivityGridView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header
                 grid
+                Text("Each square is a day. Brighter squares mean more habits completed.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Last \(weeks) weeks")
-                .font(.rounded(17))
-                .foregroundStyle(Theme.textPrimary)
-            Spacer()
+        AdaptiveStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Your rhythm")
+                    .roundedFont(17)
+                    .foregroundStyle(Theme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Text("Last \(weeks) weeks")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Text("\(checkIns) check-ins")
                 .font(.footnote)
                 .foregroundStyle(Theme.textTertiary)

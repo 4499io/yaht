@@ -4,6 +4,7 @@ import SwiftUI
 /// days are filled with the habit's color, partly done count days are tinted,
 /// and today is outlined until it is done. Arrows step through earlier months.
 struct MonthCalendarView: View {
+    @ScaledMetric(relativeTo: .caption) private var daySize: CGFloat = 36
     let habit: Habit
     @State private var monthOffset = 0
 
@@ -15,14 +16,15 @@ struct MonthCalendarView: View {
         let symbols = Self.weekdaySymbols(calendar: calendar)
 
         VStack(spacing: 14) {
-            HStack {
+            AdaptiveStack(spacing: 8) {
                 Text(month, format: .dateTime.month(.wide).year())
-                    .font(.rounded(17))
+                    .roundedFont(17)
                     .foregroundStyle(Theme.textPrimary)
-                Spacer()
+                HStack(spacing: 0) {
                 monthButton("chevron.left", label: "Previous month") { monthOffset -= 1 }
                 monthButton("chevron.right", label: "Next month") { monthOffset += 1 }
                     .disabled(monthOffset >= 0)
+                }
             }
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 8) {
@@ -40,6 +42,9 @@ struct MonthCalendarView: View {
                     }
                 }
             }
+            Text("Solid circles reached your goal. The outline marks today when its goal is still open.")
+                .font(.caption)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -58,17 +63,21 @@ struct MonthCalendarView: View {
     }
 
     private func dayCell(_ date: Date, today: Date, calendar: Calendar) -> some View {
+        let status = CalendarDayStatus(habit: habit, date: date, today: today, calendar: calendar)
         let isFuture = date > today
         let isBeforeStart = date < calendar.startOfDay(for: habit.createdAt)
         let progress = isFuture ? 0 : habit.progress(on: date, calendar: calendar)
         let isDone = progress >= 1
         let isToday = calendar.isDate(date, inSameDayAs: today)
-        let textColor: Color = isDone ? Theme.onAccent : (isFuture || isBeforeStart ? Theme.textDisabled : Theme.textPrimary)
+        let textColor: Color = isDone ? Theme.onAccent(habit.colorHex) : (isFuture || isBeforeStart ? Theme.textDisabled : Theme.textPrimary)
         return Text(date, format: .dateTime.day())
-            .font(.rounded(14, weight: isDone || isToday ? .heavy : .semibold))
+            .font(.system(size: min(daySize * 14 / 36, 24), weight: isDone || isToday ? .heavy : .semibold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(textColor)
-            .frame(width: 36, height: 36)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
             .background {
                 if isDone {
                     Circle().fill(habit.color)
@@ -84,7 +93,7 @@ struct MonthCalendarView: View {
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(date, format: .dateTime.weekday(.wide).day().month(.wide)))
-            .accessibilityValue(isDone ? Text("Done") : (progress > 0 ? Text("Partly done") : Text("Not done")))
+            .accessibilityValue(Text(status.label))
     }
 
     /// Leading blanks to align the 1st under its weekday, then every day.

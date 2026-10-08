@@ -2,6 +2,7 @@ import SwiftUI
 
 /// A rounded card on the ``Theme/surface`` color with a hairline border.
 struct Card<Content: View>: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     private let cornerRadius: CGFloat
     private let padding: CGFloat
     private let content: Content
@@ -18,7 +19,7 @@ struct Card<Content: View>: View {
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Theme.hairline, lineWidth: 1)
+                    .strokeBorder(contrast == .increased ? Theme.textSecondary.opacity(0.45) : Theme.hairline, lineWidth: 1)
             }
     }
 }
