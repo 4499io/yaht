@@ -28,7 +28,7 @@ struct AdaptiveStack<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        if textSize.isAccessibilitySize {
+        if textSize >= .xxxLarge {
             VStack(alignment: .leading, spacing: spacing) { content }
         } else {
             HStack(spacing: spacing) { content }

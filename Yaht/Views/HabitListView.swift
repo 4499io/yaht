@@ -7,6 +7,7 @@ import SwiftUI
 /// the starter picker.
 struct HabitListView: View {
     @Environment(HabitStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(
         filter: #Predicate<Habit> { !$0.isArchived },
         sort: \Habit.sortOrder
@@ -52,21 +53,24 @@ struct HabitListView: View {
         let day = selectedDay.flatMap { selected in
             WeekStrip.days(endingOn: today, calendar: calendar).contains(selected) && selected != today ? selected : nil
         } ?? today
+        let visible = habits.filter { calendar.startOfDay(for: $0.createdAt) <= day }
+        let scheduled = visible.filter { $0.isOnToday(day) }
+        let other = visible.filter { !$0.isOnToday(day) }
         return ScrollView {
-            VStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 24) {
                 header(day: day, today: today, calendar: calendar)
-                TodaySummaryCard(habits: habits, day: day, isToday: day == today)
+                TodaySummaryCard(habits: visible, day: day, isToday: day == today)
                 WeekStrip(habits: habits, today: today, selected: day) { picked in
-                    withAnimation(.snappy) { selectedDay = picked == today ? nil : picked }
+                    withAnimation(reduceMotion ? nil : .snappy) { selectedDay = picked == today ? nil : picked }
                 }
-                VStack(spacing: 8) {
-                    ForEach(orderedHabits(day)) { habit in
-                        HabitRowView(habit: habit, day: day)
-                    }
+                habitSection("On your list", habits: scheduled, day: day)
+                if !other.isEmpty {
+                    habitSection("Other habits", habits: other, day: day)
                 }
                 GlobalActivityGridView(habits: habits)
             }
             .padding(.horizontal, 16)
+            .padding(.top, 8)
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
@@ -74,7 +78,7 @@ struct HabitListView: View {
 
     private func header(day: Date, today: Date, calendar: Calendar) -> some View {
         let isToday = day == today
-        return HStack(alignment: .bottom) {
+        return AdaptiveStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(day, format: .dateTime.weekday(.wide).day().month(.wide))
                     .roundedFont(13, weight: .semibold)
@@ -95,10 +99,9 @@ struct HabitListView: View {
                 .contentTransition(.opacity)
                 .accessibilityAddTraits(.isHeader)
             }
-            Spacer(minLength: 8)
             if !isToday {
                 Button {
-                    withAnimation(.snappy) { selectedDay = nil }
+                    withAnimation(reduceMotion ? nil : .snappy) { selectedDay = nil }
                 } label: {
                     Label("Today", systemImage: "arrow.uturn.forward")
                         .font(.subheadline.weight(.semibold))
@@ -117,17 +120,26 @@ struct HabitListView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Habits on the day's list first (in the user's order), then the rest.
-    private func orderedHabits(_ day: Date) -> [Habit] {
-        let onDay = habits.filter { $0.isOnToday(day) }
-        let rest = habits.filter { !$0.isOnToday(day) }
-        return onDay + rest
+    private func habitSection(_ title: LocalizedStringKey, habits: [Habit], day: Date) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeading(title: title, detail: "\(habits.count)")
+            if habits.isEmpty {
+                Text("Nothing scheduled for this day.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+            } else {
+                ForEach(habits) { habit in
+                    HabitRowView(habit: habit, day: day)
+                }
+            }
+        }
     }
 }
 
 /// The day at a glance: one ring segment per habit on today's list, the count
 /// done, and what is still open.
 struct TodaySummaryCard: View {
+    @ScaledMetric(relativeTo: .title) private var ringSize: CGFloat = 124
     let habits: [Habit]
     let day: Date
     var isToday = true
@@ -137,28 +149,33 @@ struct TodaySummaryCard: View {
         let open = due.filter { !$0.isCompleted(on: day) }
         let doneCount = due.count - open.count
         Card(padding: 18) {
-            HStack(spacing: 20) {
+            AdaptiveStack(spacing: 20) {
                 ZStack {
                     SegmentedRing(segments: due.map {
                         SegmentedRing.Segment(id: $0.id.uuidString, color: $0.color, isFilled: $0.isCompleted(on: day))
                     })
                     VStack(spacing: 2) {
                         HStack(alignment: .firstTextBaseline, spacing: 0) {
-                            Text("\(doneCount)")
+                            Text(due.isEmpty ? "–" : "\(doneCount)")
                                 .foregroundStyle(Theme.textPrimary)
-                            Text("/\(due.count)")
-                                .foregroundStyle(Theme.textDisabled)
+                            if !due.isEmpty {
+                                Text("/\(due.count)")
+                                    .foregroundStyle(Theme.textTertiary)
+                            }
                         }
                         .roundedFont(32, weight: .heavy)
                         .monospacedDigit()
-                        Text("done")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        Text(due.isEmpty ? "rest day" : "done")
                             .font(.caption)
                             .foregroundStyle(Theme.textTertiary)
                     }
                 }
-                .frame(width: 124, height: 124)
+                .frame(width: min(ringSize, 180), height: min(ringSize, 180))
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(doneCount) of \(due.count) habits done today")
+                .accessibilityLabel(due.isEmpty ? Text("No habits scheduled") : Text("\(doneCount) of \(due.count) habits done"))
+                .accessibilityValue(Text(day, format: .dateTime.weekday(.wide).day().month()))
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(headline(due: due.count, open: open.count))
@@ -174,7 +191,7 @@ struct TodaySummaryCard: View {
     }
 
     private func headline(due: Int, open: Int) -> LocalizedStringKey {
-        if due == 0 { return "Nothing due today" }
+        if due == 0 { return isToday ? "Nothing due today" : "Nothing was due" }
         switch open {
         case 0: return "All done. Nice."
         case 1: return "One to go"
@@ -196,6 +213,7 @@ struct TodaySummaryCard: View {
 /// The last seven days, today on the right, each with a ring for the share of
 /// that day's habits that were done. Tapping a day selects it.
 struct WeekStrip: View {
+    @ScaledMetric(relativeTo: .caption) private var dayDiameter: CGFloat = 30
     let habits: [Habit]
     let today: Date
     let selected: Date
@@ -208,9 +226,21 @@ struct WeekStrip: View {
     }
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            dayRow(fillsWidth: true)
+            ScrollView(.horizontal) {
+                dayRow(fillsWidth: false)
+            }
+            .scrollIndicators(.hidden)
+            .defaultScrollAnchor(.trailing)
+        }
+    }
+
+    private func dayRow(fillsWidth: Bool) -> some View {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: today)
-        HStack(spacing: 4) {
+        let diameter = min(dayDiameter, 72)
+        return HStack(spacing: 4) {
             ForEach(Self.days(endingOn: today, calendar: calendar), id: \.self) { date in
                 let isSelected = calendar.isDate(date, inSameDayAs: selected)
                 let isToday = calendar.isDate(date, inSameDayAs: start)
@@ -227,9 +257,9 @@ struct WeekStrip: View {
                                 .monospacedDigit()
                                 .foregroundStyle(Theme.textPrimary)
                         }
-                        .frame(width: 30, height: 30)
+                        .frame(width: diameter, height: diameter)
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(minWidth: max(diameter + 14, 44), maxWidth: fillsWidth ? .infinity : nil)
                     .padding(.top, 8)
                     .padding(.bottom, 10)
                     .background(isSelected ? Theme.raised : .clear, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
