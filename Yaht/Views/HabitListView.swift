@@ -244,7 +244,8 @@ struct WeekStrip: View {
             ForEach(Self.days(endingOn: today, calendar: calendar), id: \.self) { date in
                 let isSelected = calendar.isDate(date, inSameDayAs: selected)
                 let isToday = calendar.isDate(date, inSameDayAs: start)
-                let fraction = completion(on: date, calendar: calendar)
+                let completion = completion(on: date, calendar: calendar)
+                let fraction = completion.fraction
                 Button { onSelect(date) } label: {
                     VStack(spacing: 6) {
                         Text(date, format: .dateTime.weekday(.narrow))
@@ -268,18 +269,18 @@ struct WeekStrip: View {
                 .buttonStyle(.plain)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(isToday ? Text("Today") : Text(date, format: .dateTime.weekday(.wide).day().month()))
-                .accessibilityValue(Text("\(Int((fraction * 100).rounded())) percent done"))
+                .accessibilityValue(completion.hasHabits ? Text("\(Int((fraction * 100).rounded())) percent done") : Text("Nothing scheduled"))
                 .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
             }
         }
     }
 
-    private func completion(on date: Date, calendar: Calendar) -> Double {
+    private func completion(on date: Date, calendar: Calendar) -> (fraction: Double, hasHabits: Bool) {
         let live = habits.filter { calendar.startOfDay(for: $0.createdAt) <= date }
         let due = live.filter { $0.isOnToday(date, calendar: calendar) }
-        guard !due.isEmpty else { return 0 }
+        guard !due.isEmpty else { return (0, false) }
         let done = due.filter { $0.isCompleted(on: date, calendar: calendar) }.count
-        return Double(done) / Double(due.count)
+        return (Double(done) / Double(due.count), true)
     }
 }
 

@@ -101,9 +101,11 @@ private struct LastSevenDays: View {
                 let progress = habit.progress(on: date, calendar: calendar)
                 Capsule()
                     .fill(progress >= 1 ? habit.color : (progress > 0 ? habit.color.opacity(0.5) : Theme.track))
-                    .frame(width: 18, height: 5)
+                    .frame(minWidth: 6, maxWidth: 18)
+                    .frame(height: 5)
             }
         }
+        .frame(maxWidth: 150)
         .accessibilityElement()
         .accessibilityLabel("Done \(done) of the last 7 days")
     }
