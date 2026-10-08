@@ -129,7 +129,10 @@ struct RemindersSection: View {
     }
 }
 
-/// A single editable reminder draft row; its bin button removes it.
+/// A single editable reminder: the time and its on/off switch on top, then
+/// one labelled row per setting with its control on the trailing edge, so
+/// both switches line up. Removing sits apart at the bottom, away from the
+/// switches.
 private struct ReminderRow: View {
     @Binding var reminder: ReminderDraft
     /// "Some days" habits remind only on their chosen days, so the reminder's
@@ -138,8 +141,8 @@ private struct ReminderRow: View {
     let onRemove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
                 DatePicker(
                     "Time",
                     selection: $reminder.time,
@@ -148,47 +151,78 @@ private struct ReminderRow: View {
                 .labelsHidden()
                 .accessibilityIdentifier("habit-edit-reminder-time")
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
 
-                Toggle("Enabled", isOn: $reminder.isEnabled)
+                Toggle("Reminder on", isOn: $reminder.isEnabled)
                     .labelsHidden()
                     .accessibilityIdentifier("habit-edit-reminder-enabled")
-
-                // Borderless: in a Form row, default-styled buttons make the
-                // whole row their tap target.
-                Button(role: .destructive, action: onRemove) {
-                    Image(systemName: "trash")
-                        .foregroundStyle(Theme.danger)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Remove reminder")
-                .accessibilityIdentifier("habit-edit-reminder-remove")
             }
 
-            if followsHabitDays {
-                Text("On the habit's days")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.textTertiary)
-            } else {
-                Picker("Days", selection: $reminder.scope) {
-                    Text("Every day").tag(ReminderScope.everyDay)
-                    Text("Weekdays").tag(ReminderScope.weekdaysOnly)
-                    Text("Weekends").tag(ReminderScope.weekendsOnly)
+            VStack(spacing: 14) {
+                SettingRow(title: "Days", systemImage: "calendar") {
+                    if followsHabitDays {
+                        Text("Habit's days")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textTertiary)
+                    } else {
+                        Picker("Days", selection: $reminder.scope) {
+                            Text("Every day").tag(ReminderScope.everyDay)
+                            Text("Weekdays").tag(ReminderScope.weekdaysOnly)
+                            Text("Weekends").tag(ReminderScope.weekendsOnly)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .fixedSize()
+                        .accessibilityIdentifier("habit-edit-reminder-scope")
+                    }
                 }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("habit-edit-reminder-scope")
-            }
 
-            Toggle(isOn: $reminder.repeatsHourly) {
-                Text("Every hour until done")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.textSecondary)
+                SettingRow(title: "Every hour until done", systemImage: "arrow.clockwise") {
+                    Toggle("Every hour until done", isOn: $reminder.repeatsHourly)
+                        .labelsHidden()
+                        .accessibilityIdentifier("habit-edit-reminder-hourly")
+                }
             }
             .disabled(!reminder.isEnabled)
-            .accessibilityIdentifier("habit-edit-reminder-hourly")
+            .opacity(reminder.isEnabled ? 1 : 0.45)
+
+            // Borderless: in a Form row, default-styled buttons make the
+            // whole row their tap target.
+            Button(role: .destructive, action: onRemove) {
+                Label("Remove", systemImage: "trash")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.danger)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Remove reminder")
+            .accessibilityIdentifier("habit-edit-reminder-remove")
         }
-        .padding(.vertical, 4)
+        .padding(.top, 10)
+    }
+}
+
+/// An icon and title on the leading edge, a control on the trailing edge.
+private struct SettingRow<Control: View>: View {
+    let title: LocalizedStringKey
+    let systemImage: String
+    @ViewBuilder let control: Control
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.textTertiary)
+                .frame(width: 20)
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Spacer(minLength: 8)
+            control
+        }
+        .frame(minHeight: 32)
     }
 }
