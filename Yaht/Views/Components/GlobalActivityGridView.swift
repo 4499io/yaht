@@ -46,13 +46,13 @@ struct GlobalActivityGridView: View {
     private var header: some View {
         AdaptiveStack(spacing: 4) {
             VStack(alignment: .leading, spacing: 2) {
-            Text("Your rhythm")
-                .roundedFont(17)
-                .foregroundStyle(Theme.textPrimary)
-                .accessibilityAddTraits(.isHeader)
-            Text("Last \(weeks) weeks")
-                .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
+                Text("Your rhythm")
+                    .roundedFont(17)
+                    .foregroundStyle(Theme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Text("Last \(weeks) weeks")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Text("\(checkIns) check-ins")

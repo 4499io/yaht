@@ -21,7 +21,9 @@ enum AccentContrast {
         let rgb = cleaned.count == 8 ? value >> 8 : value
         let alpha = cleaned.count == 8 ? Double(value & 0xFF) / 255 : 1
         // Controls sit on the card surface; account for translucent custom colors.
-        let surface: [Double] = [40.0 / 255, 40.0 / 255, 40.0 / 255]
+        let surfaceRGB = UInt64(Theme.surfaceHex, radix: 16) ?? 0x282828
+        let surface = [Double((surfaceRGB >> 16) & 0xFF), Double((surfaceRGB >> 8) & 0xFF), Double(surfaceRGB & 0xFF)]
+            .map { $0 / 255 }
         let channels = [Double((rgb >> 16) & 0xFF), Double((rgb >> 8) & 0xFF), Double(rgb & 0xFF)]
         let linear = zip(channels, surface).map { channel, backdrop in
             let component = channel / 255 * alpha + backdrop * (1 - alpha)

@@ -283,9 +283,21 @@ struct WeekStrip: View {
     }
 }
 
-#Preview {
-    NavigationStack {
+#Preview("Today") {
+    let fixture = try! PreviewHabits()
+    return NavigationStack {
         HabitListView()
     }
+    .environment(fixture.store)
+    .modelContainer(fixture.container)
     .preferredColorScheme(.dark)
+}
+
+#Preview("Today · Accessibility text") {
+    let fixture = try! PreviewHabits()
+    return NavigationStack { HabitListView() }
+        .environment(fixture.store)
+        .modelContainer(fixture.container)
+        .environment(\.dynamicTypeSize, .accessibility3)
+        .preferredColorScheme(.dark)
 }

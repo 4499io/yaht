@@ -42,7 +42,7 @@ struct MonthCalendarView: View {
                     }
                 }
             }
-            Text("Filled days reached your goal. The outlined day is today.")
+            Text("Solid circles reached your goal. The outline marks today when its goal is still open.")
                 .font(.caption)
                 .foregroundStyle(Theme.textSecondary)
         }
@@ -74,7 +74,10 @@ struct MonthCalendarView: View {
             .font(.system(size: min(daySize * 14 / 36, 24), weight: isDone || isToday ? .heavy : .semibold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(textColor)
-            .frame(width: 36, height: 36)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
             .background {
                 if isDone {
                     Circle().fill(habit.color)

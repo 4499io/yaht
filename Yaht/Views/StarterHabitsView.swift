@@ -189,3 +189,11 @@ struct StarterHabitsView: View {
         }
     }
 }
+
+#Preview("First run") {
+    let fixture = try! PreviewHabits(populated: false)
+    return NavigationStack { StarterHabitsView {} }
+        .environment(fixture.store)
+        .modelContainer(fixture.container)
+        .preferredColorScheme(.dark)
+}

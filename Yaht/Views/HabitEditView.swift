@@ -216,20 +216,20 @@ private struct KindSection: View {
             viewModel.kind = kind
         } label: {
             HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(isSelected ? viewModel.selectedColor : Theme.textPrimary)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(Theme.textTertiary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(viewModel.selectedColor)
-                    .accessibilityHidden(true)
-            }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(isSelected ? viewModel.selectedColor : Theme.textPrimary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(viewModel.selectedColor)
+                        .accessibilityHidden(true)
+                }
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .padding(12)

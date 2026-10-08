@@ -227,14 +227,14 @@ private struct SettingRow<Control: View>: View {
     var body: some View {
         AdaptiveStack(spacing: 10) {
             HStack(spacing: 10) {
-            Image(systemName: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.textTertiary)
-                .frame(width: 20)
-            Text(title)
-                .font(.subheadline)
-                .foregroundStyle(Theme.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+                Image(systemName: systemImage)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.textTertiary)
+                    .frame(width: 20)
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             control

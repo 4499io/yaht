@@ -200,12 +200,15 @@ private struct CheckInButton: View {
         VStack(spacing: 8) {
             checkIn
             if habit.habitKind == .count {
-                Button("Undo one", systemImage: "minus.circle") {
+                Button {
                     store.increment(habit, on: day, by: -1)
+                } label: {
+                    Label("Undo one", systemImage: "minus.circle")
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)
-                .frame(minHeight: 44)
                 .disabled(habit.dayCount(on: day) == 0)
                 .accessibilityIdentifier("habit-detail-undo-one")
             }
@@ -224,8 +227,12 @@ private struct CheckInButton: View {
                 Image(systemName: habit.habitKind == .count ? "plus" : "checkmark")
                     .font(.system(size: 17, weight: .heavy))
                 Text(label(done: done))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
             }
             .roundedFont(17)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: 56)
             .foregroundStyle(done ? habit.color : Theme.onAccent(habit.colorHex))
             .background(done ? Color.clear : habit.color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -253,11 +260,23 @@ private struct CheckInButton: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        HabitDetailView(habit: Habit(name: "Read", emoji: "📚", colorHex: Theme.habitPaletteHex[2]))
+#Preview("Count habit") {
+    let fixture = try! PreviewHabits()
+    return NavigationStack {
+        HabitDetailView(habit: fixture.habits[0])
     }
+    .environment(fixture.store)
+    .modelContainer(fixture.container)
     .preferredColorScheme(.dark)
+}
+
+#Preview("Detail · Accessibility text") {
+    let fixture = try! PreviewHabits()
+    return NavigationStack { HabitDetailView(habit: fixture.habits[1]) }
+        .environment(fixture.store)
+        .modelContainer(fixture.container)
+        .environment(\.dynamicTypeSize, .accessibility3)
+        .preferredColorScheme(.dark)
 }
 
 /// Pause a habit for illness or a holiday, or resume it. Paused days are not
@@ -289,6 +308,7 @@ private struct PauseControl: View {
                 Button("Resume") { store.resume(habit, today: today) }
                     .font(.subheadline.weight(.semibold))
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
                     .frame(minHeight: 44)
                     .tint(habit.color)
                     .accessibilityIdentifier("habit-detail-resume")
