@@ -43,7 +43,7 @@ struct GlobalActivityGridView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text("Last \(weeks) weeks")
-                .font(.rounded(17))
+                .roundedFont(17)
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
             Text("\(checkIns) check-ins")

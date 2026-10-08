@@ -2,6 +2,7 @@ import SwiftUI
 
 /// A circular progress track: an empty ring with `progress` (0...1) drawn over it.
 struct ProgressRing: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let progress: Double
     let color: Color
     var lineWidth: CGFloat = 3
@@ -17,13 +18,14 @@ struct ProgressRing: View {
                 .rotationEffect(.degrees(-90))
         }
         .padding(lineWidth / 2)
-        .animation(.snappy, value: progress)
+        .animation(reduceMotion ? nil : .snappy, value: progress)
     }
 }
 
 /// One ring split into equal segments, one per item. A filled segment shows the
 /// item's color; an unfilled one shows a faint tint of it.
 struct SegmentedRing: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     struct Segment: Identifiable {
         let id: String
         let color: Color
@@ -53,6 +55,6 @@ struct SegmentedRing: View {
             }
         }
         .padding(lineWidth / 2)
-        .animation(.snappy, value: segments.map(\.isFilled))
+        .animation(reduceMotion ? nil : .snappy, value: segments.map(\.isFilled))
     }
 }

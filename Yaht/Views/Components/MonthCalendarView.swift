@@ -17,7 +17,7 @@ struct MonthCalendarView: View {
         VStack(spacing: 14) {
             HStack {
                 Text(month, format: .dateTime.month(.wide).year())
-                    .font(.rounded(17))
+                    .roundedFont(17)
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 monthButton("chevron.left", label: "Previous month") { monthOffset -= 1 }
@@ -63,9 +63,9 @@ struct MonthCalendarView: View {
         let progress = isFuture ? 0 : habit.progress(on: date, calendar: calendar)
         let isDone = progress >= 1
         let isToday = calendar.isDate(date, inSameDayAs: today)
-        let textColor: Color = isDone ? Theme.onAccent : (isFuture || isBeforeStart ? Theme.textDisabled : Theme.textPrimary)
+        let textColor: Color = isDone ? Theme.onAccent(habit.colorHex) : (isFuture || isBeforeStart ? Theme.textDisabled : Theme.textPrimary)
         return Text(date, format: .dateTime.day())
-            .font(.rounded(14, weight: isDone || isToday ? .heavy : .semibold))
+            .roundedFont(14, weight: isDone || isToday ? .heavy : .semibold)
             .monospacedDigit()
             .foregroundStyle(textColor)
             .frame(width: 36, height: 36)

@@ -55,7 +55,7 @@ struct ScheduleSection: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .foregroundStyle(isSelected ? Theme.onAccent : Theme.textPrimary)
+                .foregroundStyle(isSelected ? Theme.onAccent(viewModel.colorHex) : Theme.textPrimary)
                 .background(
                     isSelected ? viewModel.selectedColor : Theme.raised,
                     in: Capsule()
@@ -89,7 +89,7 @@ struct ScheduleSection: View {
                     Text(day.label)
                         .font(.caption.weight(.semibold))
                         .frame(minWidth: 44, maxWidth: fillsWidth ? .infinity : nil, minHeight: 44)
-                        .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
+                        .foregroundStyle(selected ? Theme.onAccent(viewModel.colorHex) : Theme.textSecondary)
                         .background(
                             selected ? viewModel.selectedColor : Theme.raised,
                             in: RoundedRectangle(cornerRadius: 8, style: .continuous)

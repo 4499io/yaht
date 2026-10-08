@@ -132,7 +132,7 @@ private struct BasicsSection: View {
     var body: some View {
         Section("Name") {
             TextField("e.g. Read 10 pages", text: $viewModel.name)
-                .font(.rounded(22))
+                .roundedFont(22)
                 .textInputAutocapitalization(.sentences)
                 .accessibilityLabel("Name")
                 .accessibilityIdentifier("habit-edit-name")

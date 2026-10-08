@@ -12,7 +12,7 @@ import SwiftUI
                     .frame(width: 96, height: 96)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Two to go")
-                            .font(.rounded(20))
+                            .roundedFont(20)
                             .foregroundStyle(Theme.textPrimary)
                         Text("Next: Gym, Call mum.")
                             .font(.subheadline)

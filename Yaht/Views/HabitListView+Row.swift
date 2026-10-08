@@ -76,7 +76,7 @@ private struct StreakBadge: View {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 10, weight: .bold))
                 Text("\(weeks)w")
-                    .font(.rounded(12, weight: .heavy))
+                    .roundedFont(12, weight: .heavy)
                     .monospacedDigit()
             }
             .foregroundStyle(color)
@@ -129,12 +129,12 @@ struct HabitCheckButton: View {
                     Circle().fill(habit.color)
                     Image(systemName: "checkmark")
                         .font(.system(size: diameter * 0.4, weight: .heavy))
-                        .foregroundStyle(Theme.onAccent)
+                        .foregroundStyle(Theme.onAccent(habit.colorHex))
                 } else {
                     ProgressRing(progress: progress, color: habit.color, lineWidth: 3)
                     if habit.habitKind == .count {
                         Text("\(habit.dayCount(on: day))/\(max(habit.dailyTarget, 1))")
-                            .font(.rounded(diameter * 0.3, weight: .heavy))
+                            .roundedFont(diameter * 0.3, weight: .heavy)
                             .monospacedDigit()
                             .minimumScaleFactor(0.6)
                             .foregroundStyle(habit.color)

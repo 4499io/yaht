@@ -76,7 +76,7 @@ struct HabitDetailView: View {
             HabitTile(emoji: habit.emoji, color: habit.color, size: 64)
             VStack(alignment: .leading, spacing: 4) {
                 Text(habit.name.isEmpty ? "Untitled" : habit.name)
-                    .font(.rounded(30, weight: .heavy))
+                    .roundedFont(30, weight: .heavy)
                     .foregroundStyle(Theme.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                 Text(subtitle)
@@ -95,7 +95,7 @@ struct HabitDetailView: View {
                     .font(.footnote)
                     .foregroundStyle(Theme.textTertiary)
                 Text("\(streak.current)")
-                    .font(.rounded(44, weight: .heavy))
+                    .roundedFont(44, weight: .heavy)
                     .monospacedDigit()
                     .foregroundStyle(habit.color)
                 Text(streak.current == 1 ? "week in a row" : "weeks in a row")
@@ -113,7 +113,7 @@ struct HabitDetailView: View {
                 ZStack {
                     ProgressRing(progress: week.fraction, color: habit.color, lineWidth: 8)
                     Text(week.isNeutral ? "–" : "\(week.completed)/\(week.required)")
-                        .font(.rounded(16, weight: .heavy))
+                        .roundedFont(16, weight: .heavy)
                         .monospacedDigit()
                         .foregroundStyle(Theme.textPrimary)
                 }
@@ -147,7 +147,7 @@ struct HabitDetailView: View {
         Card(cornerRadius: 18, padding: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(value)
-                    .font(.rounded(24, weight: .heavy))
+                    .roundedFont(24, weight: .heavy)
                     .monospacedDigit()
                     .foregroundStyle(Theme.textPrimary)
                 Text(caption)
@@ -205,9 +205,9 @@ private struct CheckInButton: View {
                     .font(.system(size: 17, weight: .heavy))
                 Text(label(done: done))
             }
-            .font(.rounded(17))
+            .roundedFont(17)
             .frame(maxWidth: .infinity, minHeight: 56)
-            .foregroundStyle(done ? habit.color : Theme.onAccent)
+            .foregroundStyle(done ? habit.color : Theme.onAccent(habit.colorHex))
             .background(done ? Color.clear : habit.color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)

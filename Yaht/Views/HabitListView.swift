@@ -77,7 +77,7 @@ struct HabitListView: View {
         return HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(day, format: .dateTime.weekday(.wide).day().month(.wide))
-                    .font(.rounded(13, weight: .semibold))
+                    .roundedFont(13, weight: .semibold)
                     .textCase(.uppercase)
                     .tracking(1.2)
                     .foregroundStyle(Theme.textTertiary)
@@ -90,7 +90,7 @@ struct HabitListView: View {
                         Text(day, format: .dateTime.weekday(.wide))
                     }
                 }
-                .font(.rounded(34, weight: .heavy))
+                .roundedFont(34, weight: .heavy)
                 .foregroundStyle(Theme.textPrimary)
                 .contentTransition(.opacity)
                 .accessibilityAddTraits(.isHeader)
@@ -149,7 +149,7 @@ struct TodaySummaryCard: View {
                             Text("/\(due.count)")
                                 .foregroundStyle(Theme.textDisabled)
                         }
-                        .font(.rounded(32, weight: .heavy))
+                        .roundedFont(32, weight: .heavy)
                         .monospacedDigit()
                         Text("done")
                             .font(.caption)
@@ -162,7 +162,7 @@ struct TodaySummaryCard: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(headline(due: due.count, open: open.count))
-                        .font(.rounded(20))
+                        .roundedFont(20)
                         .foregroundStyle(Theme.textPrimary)
                     Text(subline(due: due.count, open: open))
                         .font(.subheadline)
@@ -223,7 +223,7 @@ struct WeekStrip: View {
                         ZStack {
                             ProgressRing(progress: fraction, color: Theme.textPrimary, lineWidth: 3)
                             Text(date, format: .dateTime.day())
-                                .font(.rounded(12, weight: .bold))
+                                .roundedFont(12, weight: .bold)
                                 .monospacedDigit()
                                 .foregroundStyle(Theme.textPrimary)
                         }

@@ -49,7 +49,7 @@ struct StarterHabitsView: View {
                             lineWidth: 14
                         )
                         Text("yaht")
-                            .font(.rounded(34, weight: .heavy))
+                            .roundedFont(34, weight: .heavy)
                             .foregroundStyle(Theme.textPrimary)
                     }
                     .frame(width: 148, height: 148)
@@ -57,7 +57,7 @@ struct StarterHabitsView: View {
 
                     VStack(spacing: 8) {
                         Text("Start with one small habit")
-                            .font(.rounded(28, weight: .heavy))
+                            .roundedFont(28, weight: .heavy)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Theme.textPrimary)
                             .accessibilityAddTraits(.isHeader)
@@ -79,7 +79,7 @@ struct StarterHabitsView: View {
                 VStack(spacing: 8) {
                     Button(action: addPicked) {
                         Text(picked.isEmpty ? "Pick at least one" : "Add \(picked.count) habits")
-                            .font(.rounded(17))
+                            .roundedFont(17)
                             .frame(maxWidth: .infinity, minHeight: 56)
                             .foregroundStyle(picked.isEmpty ? Theme.textTertiary : Theme.background)
                             .background(
@@ -128,7 +128,7 @@ struct StarterHabitsView: View {
                     if isOn {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(Theme.onAccent)
+                            .foregroundStyle(Theme.onAccent(starter.colorHex))
                     }
                 }
                 .frame(width: 24, height: 24)
