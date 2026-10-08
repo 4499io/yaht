@@ -11,6 +11,7 @@ enum HabitRemoval {
 /// check-in button, a month calendar and lifetime numbers. "Edit" opens the
 /// editor; deleting or archiving there closes this screen first.
 struct HabitDetailView: View {
+    @ScaledMetric(relativeTo: .body) private var weekRingSize: CGFloat = 64
     @Environment(HabitStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     private let habit: Habit
@@ -30,7 +31,7 @@ struct HabitDetailView: View {
         ScrollView {
             VStack(spacing: 18) {
                 header
-                HStack(spacing: 10) {
+                AdaptiveStack(spacing: 10) {
                     streakCard(streak)
                     weekCard(week)
                 }
@@ -40,10 +41,10 @@ struct HabitDetailView: View {
                 Card(padding: 16) {
                     MonthCalendarView(habit: habit)
                 }
-                HStack(spacing: 10) {
+                AdaptiveStack(spacing: 10) {
                     numberTile("\(streak.best)", caption: "best streak, weeks")
-                    numberTile("\(stats.last30Percent)%", caption: "last 30 days")
-                    numberTile("\(stats.totalCompleted)", caption: "check-ins")
+                    numberTile("\(stats.last30Percent)%", caption: "days completed, last 30")
+                    numberTile("\(stats.totalCompleted)", caption: "days completed")
                 }
                 .fixedSize(horizontal: false, vertical: true)
             }
@@ -109,15 +110,18 @@ struct HabitDetailView: View {
 
     private func weekCard(_ week: WeekGoal) -> some View {
         Card(cornerRadius: 22, padding: 16) {
-            HStack(spacing: 12) {
+            AdaptiveStack(spacing: 12) {
                 ZStack {
                     ProgressRing(progress: week.fraction, color: habit.color, lineWidth: 8)
                     Text(week.isNeutral ? "–" : "\(week.completed)/\(week.required)")
                         .roundedFont(16, weight: .heavy)
                         .monospacedDigit()
                         .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .padding(8)
                 }
-                .frame(width: 64, height: 64)
+                .frame(width: min(weekRingSize, 120), height: min(weekRingSize, 120))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("This week")
                         .font(.footnote)
@@ -193,15 +197,31 @@ private struct CheckInButton: View {
     let day: Date
 
     var body: some View {
+        VStack(spacing: 8) {
+            checkIn
+            if habit.habitKind == .count {
+                Button("Undo one", systemImage: "minus.circle") {
+                    store.increment(habit, on: day, by: -1)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(minHeight: 44)
+                .disabled(habit.dayCount(on: day) == 0)
+                .accessibilityIdentifier("habit-detail-undo-one")
+            }
+        }
+    }
+
+    private var checkIn: some View {
         let done = habit.isCompleted(on: day)
-        Button {
+        return Button {
             switch habit.habitKind {
             case .binary: store.toggleCompletion(for: habit, on: day)
             case .count: store.increment(habit, on: day, by: 1)
             }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: habit.habitKind == .count && !done ? "plus" : "checkmark")
+                Image(systemName: habit.habitKind == .count ? "plus" : "checkmark")
                     .font(.system(size: 17, weight: .heavy))
                 Text(label(done: done))
             }
@@ -218,6 +238,7 @@ private struct CheckInButton: View {
         .buttonStyle(.plain)
         .sensoryFeedback(.success, trigger: done) { _, isDone in isDone }
         .accessibilityHint(habit.habitKind == .binary && done ? Text("Double-tap to undo") : Text(""))
+        .accessibilityValue(done ? Text("Daily goal reached") : Text("Daily goal in progress"))
         .accessibilityIdentifier("habit-detail-check-in")
     }
 
@@ -227,7 +248,7 @@ private struct CheckInButton: View {
             return done ? String(localized: "Done today") : String(localized: "Check in today")
         case .count:
             let progress = "\(habit.dayCount(on: day))/\(max(habit.dailyTarget, 1))"
-            return done ? String(localized: "Done today · \(progress)") : String(localized: "Add one · \(progress)")
+            return String(localized: "Add one · \(progress)")
         }
     }
 }
@@ -252,7 +273,7 @@ private struct PauseControl: View {
     var body: some View {
         let calendar = Calendar.current
         if let pause = habit.pause(covering: today) {
-            HStack(spacing: 12) {
+            AdaptiveStack(spacing: 12) {
                 Image(systemName: "pause.circle.fill")
                     .font(.title2)
                     .foregroundStyle(habit.color)
@@ -265,10 +286,10 @@ private struct PauseControl: View {
                         .font(.caption)
                         .foregroundStyle(Theme.textTertiary)
                 }
-                Spacer(minLength: 8)
                 Button("Resume") { store.resume(habit, today: today) }
                     .font(.subheadline.weight(.semibold))
                     .buttonStyle(.bordered)
+                    .frame(minHeight: 44)
                     .tint(habit.color)
                     .accessibilityIdentifier("habit-detail-resume")
             }

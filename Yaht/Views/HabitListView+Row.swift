@@ -116,6 +116,7 @@ private struct LastSevenDays: View {
 /// habit's color as progress grows and becomes a solid check when done.
 struct HabitCheckButton: View {
     @Environment(HabitStore.self) private var store
+    @ScaledMetric(relativeTo: .body) private var controlScale: CGFloat = 1
     let habit: Habit
     let day: Date
     var diameter: CGFloat = 40
@@ -123,31 +124,33 @@ struct HabitCheckButton: View {
     var body: some View {
         let progress = habit.progress(on: day)
         let done = progress >= 1
-        Button(action: tap) {
+        let size = min(diameter * controlScale, 88)
+        return Button(action: tap) {
             ZStack {
                 if done {
                     Circle().fill(habit.color)
                     Image(systemName: "checkmark")
-                        .font(.system(size: diameter * 0.4, weight: .heavy))
+                        .font(.system(size: size * 0.4, weight: .heavy))
                         .foregroundStyle(Theme.onAccent(habit.colorHex))
                 } else {
                     ProgressRing(progress: progress, color: habit.color, lineWidth: 3)
                     if habit.habitKind == .count {
                         Text("\(habit.dayCount(on: day))/\(max(habit.dailyTarget, 1))")
-                            .roundedFont(diameter * 0.3, weight: .heavy)
+                            .font(.system(size: size * 0.3, weight: .heavy, design: .rounded))
                             .monospacedDigit()
-                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.3)
                             .foregroundStyle(habit.color)
                             .padding(4)
                     } else {
                         Image(systemName: "checkmark")
-                            .font(.system(size: diameter * 0.35, weight: .semibold))
+                            .font(.system(size: size * 0.35, weight: .semibold))
                             .foregroundStyle(habit.color)
                     }
                 }
             }
-            .frame(width: diameter, height: diameter)
-            .frame(width: max(diameter + 12, 44), height: max(diameter + 12, 44))
+            .frame(width: size, height: size)
+            .frame(width: max(size + 12, 44), height: max(size + 12, 44))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
